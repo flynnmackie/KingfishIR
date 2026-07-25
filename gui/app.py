@@ -97,8 +97,8 @@ class DiscoveryTab(QWidget):
         row.addWidget(self.scan_btn)
         layout.addLayout(row)
 
-        self.table = QTableWidget(0, 5)
-        self.table.setHorizontalHeaderLabels(["Host", "Status", "OS guess", "Confidence", "Basis"])
+        self.table = QTableWidget(0, 6)
+        self.table.setHorizontalHeaderLabels(["Host", "Status", "Last Scanned", "OS Guess", "Confidence", "Basis"])
         self.table.horizontalHeader().setStretchLastSection(True)
         layout.addWidget(self.table)
 
@@ -131,11 +131,17 @@ class DiscoveryTab(QWidget):
         self.thread.start()
 
     def on_host_found(self, host):
-            # Merge: skip hosts already in the list (by IP).
-            if any(h.ip == host.ip for h in self.state.hosts):
+        from datetime import datetime
+        now = datetime.now().strftime("%H:%M:%S")
+        # If already in the list, refresh its last-scanned time and row.
+        for existing in self.state.hosts:
+            if existing.ip == host.ip:
+                existing.last_scanned = now
+                self.refresh_row(existing)
                 return
-            self.state.hosts.append(host)
-            self.add_row(host)
+        host.last_scanned = now
+        self.state.hosts.append(host)
+        self.add_row(host)
 
     def on_scan_done(self, total_scanned):
         self.scan_btn.setEnabled(True)
@@ -146,10 +152,10 @@ class DiscoveryTab(QWidget):
     def add_row(self, h):
         r = self.table.rowCount()
         self.table.insertRow(r)
-
         cells = [
             h.ip,
             "UP",
+            h.last_scanned,
             h.os_guess.value.capitalize(),
             h.confidence.upper(),
             h.fingerprint_basis,
@@ -158,23 +164,37 @@ class DiscoveryTab(QWidget):
             item = QTableWidgetItem(str(val))
             self.table.setItem(r, c, item)
 
-        for col in (1, 2, 3):          # Status, OS guess, Confidence
+        for col in (1, 2, 3, 4):          # Status, Last Scanned, OS, Confidence
             self.table.item(r, col).setTextAlignment(Qt.AlignCenter)
 
-        # Colour the OS-guess cell by platform.
+        # OS guess is now column 3, Confidence column 4.
         os_colour = _OS_COLOURS.get(h.os_guess)
         if os_colour:
-            self.table.item(r, 2).setBackground(os_colour)
-            self.table.item(r, 2).setForeground(QColor(20, 20, 20))
-
-        # Colour the confidence cell green/amber/grey.
+            self.table.item(r, 3).setBackground(os_colour)
+            self.table.item(r, 3).setForeground(QColor(20, 20, 20))
         conf_colour = _CONF_COLOURS.get(h.confidence)
         if conf_colour:
-            self.table.item(r, 3).setBackground(conf_colour)
-            self.table.item(r, 3).setForeground(QColor(20, 20, 20))
+            self.table.item(r, 4).setBackground(conf_colour)
+            self.table.item(r, 4).setForeground(QColor(20, 20, 20))
 
-        # Status cell: green text for "up".
         self.table.item(r, 1).setForeground(QColor(46, 125, 50))
+
+    def refresh_row(self, h):
+            from PySide6.QtCore import QTimer
+            for r in range(self.table.rowCount()):
+                if self.table.item(r, 0).text() == h.ip:
+                    item = QTableWidgetItem(h.last_scanned)
+                    item.setTextAlignment(Qt.AlignCenter)
+                    item.setForeground(QColor(80, 220, 100))       # flash GREEN TEXT
+                    self.table.setItem(r, 2, item)
+                    QTimer.singleShot(800, lambda rr=r: self._clear_flash(rr))
+                    break
+
+    def _clear_flash(self, r):
+        if r < self.table.rowCount():
+            cell = self.table.item(r, 2)
+            if cell:
+                cell.setBackground(QColor(43, 43, 43))          # back to dark bg
 
 # Friendly labels -> the CredKind the model expects.
 _KIND_CHOICES = {

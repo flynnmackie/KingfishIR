@@ -44,6 +44,7 @@ class Host:
     winrm_state: AccessState = AccessState.ABSENT
     ssh_state: AccessState = AccessState.ABSENT
     profile_name: Optional[str] = None   # assigned credential profile
+    last_scanned: str = ""
 
 
 @dataclass
