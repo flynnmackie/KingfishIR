@@ -95,6 +95,15 @@ class DiscoveryTab(QWidget):
         self.scan_btn = QPushButton("Scan")
         self.scan_btn.clicked.connect(self.on_scan)
         row.addWidget(self.scan_btn)
+
+        self.clear_btn = QPushButton("Clear")
+        self.clear_btn.clicked.connect(self.on_clear)
+        self.clear_btn.setStyleSheet(
+            "QPushButton { background-color: #a33; color: white; }"
+            "QPushButton:hover { background-color: #c44; }"
+        )
+        row.addWidget(self.clear_btn)
+
         layout.addLayout(row)
 
         self.table = QTableWidget(0, 6)
@@ -129,6 +138,19 @@ class DiscoveryTab(QWidget):
         self.worker.finished.connect(self.on_scan_done)
         self.worker.finished.connect(self.thread.quit)
         self.thread.start()
+
+    def on_clear(self):
+        if not self.state.hosts:
+            return
+        reply = QMessageBox.question(
+            self, "Clear hosts",
+            "Remove all discovered hosts? Assigned profiles and verification results will be lost.",
+        )
+        if reply != QMessageBox.Yes:
+            return
+        self.state.hosts = []
+        self.table.setRowCount(0)
+        self.status_label.setText("Host list cleared.")
 
     def on_host_found(self, host):
         from datetime import datetime
@@ -194,7 +216,7 @@ class DiscoveryTab(QWidget):
         if r < self.table.rowCount():
             cell = self.table.item(r, 2)
             if cell:
-                cell.setBackground(QColor(43, 43, 43))          # back to dark bg
+                cell.setForeground(QColor(224, 224, 244))          # back to dark bg
 
 # Friendly labels -> the CredKind the model expects.
 _KIND_CHOICES = {
