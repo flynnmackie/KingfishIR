@@ -114,6 +114,15 @@ def discover(targets: Iterable[str], progress=None) -> list[Host]:
     hosts: list[Host] = []
  
     for ip in targets:
+        for ip in targets:
+            if should_stop and should_stop():      # cooperative cancellation
+                break
+            host = Host(ip=ip)
+            # ... existing probing ...
+            hosts.append(host)
+            if progress:
+                progress(host)
+        return hosts
         host = Host(ip=ip)
  
         # 1. Ping for a TTL.

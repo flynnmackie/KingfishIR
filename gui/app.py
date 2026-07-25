@@ -5,7 +5,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QMessageBox,
-    QComboBox, QListWidget, QListWidgetItem
+    QComboBox, QListWidget, QListWidgetItem, QHeaderView
 )
 from PySide6.QtCore import QThread, Signal, QObject, Qt
 from PySide6.QtGui import QColor
@@ -44,19 +44,32 @@ class AppState:
 
 class ScanWorker(QObject):
     host_found = Signal(object)
+    progress = Signal(int, int)      # done, total
     finished = Signal(int)
-    error = Signal(str)             # <-- new
+    error = Signal(str)
 
     def __init__(self, ips):
-        super().__init__()
-        self.ips = ips
+            super().__init__()
+            self.ips = ips
+            self._stop = False
+
+    def stop(self):
+        self._stop = True
 
     def run(self):
+        total = len(self.ips)
+        done = 0
+        def on_host(host):
+            nonlocal done
+            done += 1
+            self.progress.emit(done, total)
+            if host.is_up:
+                self.host_found.emit(host)
         try:
-            discover(self.ips, progress=self.host_found.emit)
+            discover(self.ips, progress=on_host, should_stop=lambda: self._stop)
         except Exception as exc:
             self.error.emit(str(exc))
-        self.finished.emit(len(self.ips))
+        self.finished.emit(total)
 
 class VerifyWorker(QObject):
     """Runs verify_host for each host on a background thread."""
@@ -96,6 +109,14 @@ class DiscoveryTab(QWidget):
         self.scan_btn.clicked.connect(self.on_scan)
         row.addWidget(self.scan_btn)
 
+        self.stop_btn = QPushButton("Stop")
+        self.stop_btn.setStyleSheet(
+            "QPushButton { background-color: #a33; color: white; }"
+            "QPushButton:hover { background-color: #c44; }")
+        self.stop_btn.clicked.connect(self.on_stop)
+        self.stop_btn.setEnabled(False)
+        row.addWidget(self.stop_btn)
+
         self.clear_btn = QPushButton("Clear")
         self.clear_btn.clicked.connect(self.on_clear)
         self.clear_btn.setStyleSheet(
@@ -106,9 +127,11 @@ class DiscoveryTab(QWidget):
 
         layout.addLayout(row)
 
-        self.table = QTableWidget(0, 6)
-        self.table.setHorizontalHeaderLabels(["Host", "Status", "Last Scanned", "OS Guess", "Confidence", "Basis"])
-        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table = QTableWidget(0, 7)
+        self.table.setHorizontalHeaderLabels(["Host", "Status", "Last Scanned", "OS Guess", "Confidence", "Basis", ""])
+        self.table.horizontalHeader().setStretchLastSection(False)
+        self.table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Stretch)
+        self.table.setColumnWidth(6, 110)      # fixed, sensible width for the button column
         layout.addWidget(self.table)
 
         self.status_label = QLabel("Ready.")
@@ -125,6 +148,7 @@ class DiscoveryTab(QWidget):
             return
 
         self.scan_btn.setEnabled(False)
+        self.stop_btn.setEnabled(True)
         self.scan_btn.setText("Scanning…")
         self.status_label.setText(f"Scanning {len(ips)} address(es)…")
 
@@ -137,6 +161,7 @@ class DiscoveryTab(QWidget):
         self.worker.host_found.connect(self.on_host_found)
         self.worker.finished.connect(self.on_scan_done)
         self.worker.finished.connect(self.thread.quit)
+        self.worker.progress.connect(self.on_progress)
         self.thread.start()
 
     def on_clear(self):
@@ -167,9 +192,19 @@ class DiscoveryTab(QWidget):
 
     def on_scan_done(self, total_scanned):
         self.scan_btn.setEnabled(True)
+        self.stop_btn.setEnabled(True)
         self.scan_btn.setText("Scan")
         total = len(self.state.hosts)
         self.status_label.setText(f"{total} host(s) in list ({total_scanned} scanned this pass).")
+
+    def on_stop(self):
+            if hasattr(self, "worker") and self.worker:
+                self.worker.stop()
+            self.status_label.setText("Stopping…")
+            self.stop_btn.setEnabled(False)
+
+    def on_progress(self, done, total):
+        self.status_label.setText(f"Scanning {done + 1} of {total} addresses…")
 
     def add_row(self, h):
         r = self.table.rowCount()
@@ -200,6 +235,15 @@ class DiscoveryTab(QWidget):
             self.table.item(r, 4).setForeground(QColor(20, 20, 20))
 
         self.table.item(r, 1).setForeground(QColor(46, 125, 50))
+        # Per-host remove button (captures IP, not row - rows shift on delete).
+        remove_btn = QPushButton("Remove")
+        remove_btn.setMaximumWidth(90)
+        remove_btn.setStyleSheet(
+            "QPushButton { background-color: #a33; color: white; padding: 2px 8px; }"
+            "QPushButton:hover { background-color: #c44; }"
+        )
+        remove_btn.clicked.connect(lambda _, ip=h.ip: self.remove_host(ip))
+        self.table.setCellWidget(r, 6, remove_btn)
 
     def refresh_row(self, h):
             from PySide6.QtCore import QTimer
@@ -218,6 +262,15 @@ class DiscoveryTab(QWidget):
             if cell:
                 cell.setForeground(QColor(224, 224, 244))          # back to dark bg
 
+    def remove_host(self, ip):
+        # Remove from the shared list.
+        self.state.hosts = [h for h in self.state.hosts if h.ip != ip]
+        # Remove from the table by finding its current row.
+        for r in range(self.table.rowCount()):
+            if self.table.item(r, 0) and self.table.item(r, 0).text() == ip:
+                self.table.removeRow(r)
+                break
+        self.status_label.setText(f"Removed {ip}. {len(self.state.hosts)} host(s) in list.")
 # Friendly labels -> the CredKind the model expects.
 _KIND_CHOICES = {
     "Windows (domain)": CredKind.DOMAIN_KERBEROS,
