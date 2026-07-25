@@ -118,8 +118,7 @@ class DiscoveryTab(QWidget):
         self.scan_btn.setEnabled(False)
         self.scan_btn.setText("Scanning…")
         self.status_label.setText(f"Scanning {len(ips)} address(es)…")
-        self.table.setRowCount(0)
-        self.state.hosts = []
+
 
         self.thread = QThread()
         self.worker = ScanWorker(ips)
@@ -132,14 +131,17 @@ class DiscoveryTab(QWidget):
         self.thread.start()
 
     def on_host_found(self, host):
-        self.state.hosts.append(host)
-        self.add_row(host)
+            # Merge: skip hosts already in the list (by IP).
+            if any(h.ip == host.ip for h in self.state.hosts):
+                return
+            self.state.hosts.append(host)
+            self.add_row(host)
 
     def on_scan_done(self, total_scanned):
         self.scan_btn.setEnabled(True)
         self.scan_btn.setText("Scan")
-        up = len(self.state.hosts)
-        self.status_label.setText(f"{up} host(s) up of {total_scanned} scanned.")
+        total = len(self.state.hosts)
+        self.status_label.setText(f"{total} host(s) in list ({total_scanned} scanned this pass).")
 
     def add_row(self, h):
         r = self.table.rowCount()
@@ -147,24 +149,29 @@ class DiscoveryTab(QWidget):
 
         cells = [
             h.ip,
-            "up",
-            h.os_guess.value,
-            h.confidence,
+            "UP",
+            h.os_guess.value.capitalize(),
+            h.confidence.upper(),
             h.fingerprint_basis,
         ]
         for c, val in enumerate(cells):
             item = QTableWidgetItem(str(val))
             self.table.setItem(r, c, item)
 
+        for col in (1, 2, 3):          # Status, OS guess, Confidence
+            self.table.item(r, col).setTextAlignment(Qt.AlignCenter)
+
         # Colour the OS-guess cell by platform.
         os_colour = _OS_COLOURS.get(h.os_guess)
         if os_colour:
             self.table.item(r, 2).setBackground(os_colour)
+            self.table.item(r, 2).setForeground(QColor(20, 20, 20))
 
         # Colour the confidence cell green/amber/grey.
         conf_colour = _CONF_COLOURS.get(h.confidence)
         if conf_colour:
             self.table.item(r, 3).setBackground(conf_colour)
+            self.table.item(r, 3).setForeground(QColor(20, 20, 20))
 
         # Status cell: green text for "up".
         self.table.item(r, 1).setForeground(QColor(46, 125, 50))
@@ -327,6 +334,7 @@ class AccessTab(QWidget):
         }
         text, colour = labels.get(state, ("—", None))
         item = QTableWidgetItem(text)
+        item.setForeground(QColor(20, 20, 20))
         if colour:
             item.setBackground(colour)
         self.host_table.setItem(row, col, item)
@@ -476,7 +484,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Remote Triage Collector")
-        self.resize(600, 650)
+        self.resize(1200, 500)
         self.state = AppState()
 
         tabs = QTabWidget()
@@ -513,11 +521,32 @@ class LogTab(QWidget):
             self.table.setItem(r, c, QTableWidgetItem(str(v)))
         if rec.match == "Y":
             self.table.item(r, 5).setBackground(QColor(200, 230, 201))
+            self.table.item(r, 5).setForeground(QColor(20, 20, 20))   # after line 515
         elif rec.outcome == "error":
             self.table.item(r, 2).setBackground(QColor(255, 205, 210))
+            self.table.item(r, 2).setForeground(QColor(20, 20, 20))   # after line 517
 
 def run():
     app = QApplication([])
+    app.setStyleSheet("""
+        QWidget { background-color: #1e1e1e; color: #e0e0e0; }
+        QLineEdit, QComboBox, QListWidget, QTableWidget {
+            background-color: #2b2b2b; color: #e0e0e0; border: 1px solid #3c3c3c;
+        }
+        QPushButton {
+            background-color: #0e639c; color: white; border: none;
+            padding: 6px 14px; border-radius: 3px;
+        }
+        QPushButton:hover { background-color: #1177bb; }
+        QPushButton:disabled { background-color: #3c3c3c; color: #888; }
+        QHeaderView::section {
+            background-color: #333; color: #e0e0e0; padding: 4px; border: none;
+        }
+        QTabBar::tab {
+            background: #2b2b2b; color: #bbb; padding: 8px 16px;
+        }
+        QTabBar::tab:selected { background: #1e1e1e; color: white; }
+    """)
     window = MainWindow()
     window.show()
     app.exec()
