@@ -40,7 +40,10 @@ def ping_ttl(ip: str, timeout_ms: int = 800) -> int | None:
     else:
         cmd = ["ping", "-c", "1", "-W", str(max(1, timeout_ms // 1000)), ip]
     try:
-        out = subprocess.run(cmd, capture_output=True, text=True, timeout=5).stdout
+        out = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=5,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW",0),
+        ).stdout
     except (subprocess.TimeoutExpired, OSError):
         return None
     m = re.search(r"ttl[=|:]\s*(\d+)", out, re.IGNORECASE)
