@@ -294,10 +294,11 @@ class AccessTab(QWidget):
         header = self.host_table.horizontalHeader()
         header.setStretchLastSection(False)
         header.setSectionResizeMode(0, QHeaderView.Fixed)     # Host
-        self.host_table.setColumnWidth(0, 140)
+        self.host_table.setColumnWidth(0, 120)
         header.setSectionResizeMode(1, QHeaderView.Fixed)     # OS
         self.host_table.setColumnWidth(1, 110)
-        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)   # Profile - fits the combo
+        header.setSectionResizeMode(2, QHeaderView.Fixed)     # Profile
+        self.host_table.setColumnWidth(2, 150)
         header.setSectionResizeMode(3, QHeaderView.Stretch)   # WinRM
         header.setSectionResizeMode(4, QHeaderView.Stretch)   # SSH
         left.addWidget(self.host_table)
@@ -311,7 +312,7 @@ class AccessTab(QWidget):
         self.verify_btn.setEnabled(False)          # enabled in stage two
         btn_row.addWidget(self.verify_btn)
         left.addLayout(btn_row)
-        layout.addLayout(left, 2)
+        layout.addLayout(left, 5)
 
         # ---- Right: credential profile creation ----
         right = QVBoxLayout()
@@ -380,7 +381,12 @@ class AccessTab(QWidget):
         for h in hosts:
             r = self.host_table.rowCount()
             self.host_table.insertRow(r)
-            self.host_table.setItem(r, 0, QTableWidgetItem(h.ip))
+            host_item = QTableWidgetItem(h.ip)
+            host_item.setTextAlignment(Qt.AlignCenter)
+            font = host_item.font()
+            font.setBold(True)
+            host_item.setFont(font)
+            self.host_table.setItem(r, 0, host_item)
             os_item = QTableWidgetItem(h.os_guess.value.capitalize())
             os_item.setTextAlignment(Qt.AlignCenter)
             os_colour = _OS_COLOURS.get(h.os_guess)
@@ -389,6 +395,7 @@ class AccessTab(QWidget):
                 os_item.setForeground(QColor(20, 20, 20))
             self.host_table.setItem(r, 1, os_item)
             combo = QComboBox()
+            combo.setStyleSheet("QComboBox { text-align: center; }")
             combo.setMaximumWidth(120)
             combo.addItem("— none —")
             combo.addItems(self.state.store.names())
@@ -538,7 +545,6 @@ class CollectTab(QWidget):
                       h.ssh_state is AccessState.AUTHENTICATED)
             if not authed:
                 continue
-            self.host_table.setColumnWidth(2, 160)
             from PySide6.QtCore import Qt
             item = QListWidgetItem(f"{h.ip}  ({h.actual_os.value})")
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
