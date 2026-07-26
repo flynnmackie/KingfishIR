@@ -479,15 +479,15 @@ class AccessTab(QWidget):
 
     def _set_state_cell(self, row, col, state, hostname=None):
         labels = {
-            AccessState.AUTHENTICATED: ("authenticated", QColor(200, 230, 201)),
-            AccessState.PRESENT_NO_AUTH: ("creds rejected", QColor(255, 205, 210)),
+            AccessState.AUTHENTICATED: ("Authenticated", QColor(200, 230, 201)),
+            AccessState.PRESENT_NO_AUTH: ("Creds Rejected", QColor(255, 205, 210)),
             AccessState.ABSENT: ("absent", QColor(224, 224, 224)),
         }
         text, colour = labels.get(state, ("—", None))
         if state is AccessState.AUTHENTICATED and hostname:
-            text = f"authenticated · {hostname}"
+            text = f"Authenticated · {hostname}"
         item = QTableWidgetItem(text)
-        item.setTextAlignment(Qt.AlignCenter)
+        item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         if colour:
             item.setBackground(colour)
             item.setForeground(QColor(20, 20, 20))
@@ -549,7 +549,7 @@ class CollectTab(QWidget):
         left.addWidget(QLabel("Hunt on (authenticated hosts)"))
         self.host_list = QListWidget()
         left.addWidget(self.host_list)
-        self.load_btn = QPushButton("Load authenticated hosts")
+        self.load_btn = QPushButton("Load Authenticated Hosts")
         self.load_btn.clicked.connect(self.load_hosts)
         left.addWidget(self.load_btn)
         layout.addLayout(left, 1)

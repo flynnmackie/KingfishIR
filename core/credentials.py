@@ -17,6 +17,9 @@ class CredentialStore:
     def add(self, profile: CredentialProfile) -> None:
         self._profiles[profile.name] = profile
 
+    def remove(self, name: str) -> None:
+        self._profiles.pop(name, None)
+
     def get(self, name: str) -> CredentialProfile | None:
         return self._profiles.get(name)
 
