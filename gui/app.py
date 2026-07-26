@@ -607,65 +607,96 @@ class CollectTab(QWidget):
         self.populate_artefacts()
 
     def populate_artefacts(self):
-            self.artefact_list.blockSignals(True)
-            self.artefact_list.clear()
+        self.artefact_list.blockSignals(True)
+        self.artefact_list.clear()
 
-            # "Select all" heading row
-            self.select_all_item = QListWidgetItem("Select All")
-            self.select_all_item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
-            self.select_all_item.setData(Qt.UserRole, "__select_all__")
-            font = self.select_all_item.font()
-            font.setBold(True)
-            self.select_all_item.setFont(font)
-            self.select_all_item.setBackground(QColor(60, 60, 60))
-            self.select_all_item.setForeground(QColor(230, 230, 230))
-            self.artefact_list.addItem(self.select_all_item)
+        # Global "Select all" heading
+        self.select_all_item = QListWidgetItem("Select all")
+        self.select_all_item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+        self.select_all_item.setData(Qt.UserRole, ("all", None))
+        f = self.select_all_item.font(); f.setBold(True)
+        self.select_all_item.setFont(f)
+        self.select_all_item.setBackground(QColor(45, 45, 45))
+        self.select_all_item.setForeground(QColor(235, 235, 235))
+        self.artefact_list.addItem(self.select_all_item)
 
-            for a in catalogue_for(self.current_os):
-                item = QListWidgetItem(a.name)
+        # Group artefacts by category, preserving catalogue order
+        categories = {}
+        for a in catalogue_for(self.current_os):
+            categories.setdefault(a.category, []).append(a)
+
+        self.category_items = {}     # category -> its header QListWidgetItem
+        for cat, arts in categories.items():
+            # category header (checkable)
+            hdr = QListWidgetItem(cat)
+            hdr.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+            hdr.setData(Qt.UserRole, ("category", cat))
+            hf = hdr.font(); hf.setBold(True)
+            hdr.setFont(hf)
+            hdr.setBackground(QColor(58, 58, 58))
+            hdr.setForeground(QColor(220, 220, 220))
+            self.artefact_list.addItem(hdr)
+            self.category_items[cat] = hdr
+            # artefacts indented under it
+            for a in arts:
+                item = QListWidgetItem(f"      {a.name}")
                 item.setSizeHint(QSize(0, 22))
                 item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
                 item.setCheckState(Qt.Checked if a.id in self.checked_artefacts else Qt.Unchecked)
-                item.setData(Qt.UserRole, a.id)
+                item.setData(Qt.UserRole, ("artefact", a.id))
                 self.artefact_list.addItem(item)
 
-            self._sync_select_all()          # set the heading's state to match
-            self.artefact_list.blockSignals(False)
-
+        self._sync_headers()
+        self.artefact_list.blockSignals(False)
+    
     def on_item_changed(self, item):
-        aid = item.data(Qt.UserRole)
+            kind, key = item.data(Qt.UserRole)
 
-        if aid == "__select_all__":
-            # Select-all toggled: apply to every artefact row.
-            check = item.checkState()
-            self.artefact_list.blockSignals(True)
-            for i in range(self.artefact_list.count()):
-                it = self.artefact_list.item(i)
-                if it.data(Qt.UserRole) == "__select_all__":
-                    continue
-                it.setCheckState(check)
-                a_id = it.data(Qt.UserRole)
-                if check == Qt.Checked:
-                    self.checked_artefacts.add(a_id)
+            if kind == "all":
+                check = item.checkState()
+                self._set_many([a.id for a in catalogue_for(self.current_os)], check)
+            elif kind == "category":
+                check = item.checkState()
+                ids = [a.id for a in catalogue_for(self.current_os) if a.category == key]
+                self._set_many(ids, check)
+            else:   # artefact
+                if item.checkState() == Qt.Checked:
+                    self.checked_artefacts.add(key)
                 else:
-                    self.checked_artefacts.discard(a_id)
-            self.artefact_list.blockSignals(False)
-            return
+                    self.checked_artefacts.discard(key)
 
-        # A normal artefact toggled: update the set, then re-sync select-all.
-        if item.checkState() == Qt.Checked:
-            self.checked_artefacts.add(aid)
+            self._sync_headers()
+
+    def _set_many(self, ids, check):
+        idset = set(ids)
+        if check == Qt.Checked:
+            self.checked_artefacts |= idset
         else:
-            self.checked_artefacts.discard(aid)
-        self._sync_select_all()
-
-    def _sync_select_all(self):
-        if not hasattr(self, "select_all_item"):
-            return
-        all_ids = [a.id for a in catalogue_for(self.current_os)]
-        all_checked = all(aid in self.checked_artefacts for aid in all_ids) and all_ids
+            self.checked_artefacts -= idset
+        # reflect in the visible artefact rows
         self.artefact_list.blockSignals(True)
-        self.select_all_item.setCheckState(Qt.Checked if all_checked else Qt.Unchecked)
+        for i in range(self.artefact_list.count()):
+            it = self.artefact_list.item(i)
+            kind, key = it.data(Qt.UserRole)
+            if kind == "artefact" and key in idset:
+                it.setCheckState(check)
+        self.artefact_list.blockSignals(False)
+
+    def _sync_headers(self):
+        self.artefact_list.blockSignals(True)
+        cat_arts = {}
+        for a in catalogue_for(self.current_os):
+            cat_arts.setdefault(a.category, []).append(a.id)
+        # category headers
+        for cat, hdr in getattr(self, "category_items", {}).items():
+            ids = cat_arts.get(cat, [])
+            all_on = bool(ids) and all(i in self.checked_artefacts for i in ids)
+            hdr.setCheckState(Qt.Checked if all_on else Qt.Unchecked)
+        # global select-all
+        if hasattr(self, "select_all_item"):
+            all_ids = [a.id for a in catalogue_for(self.current_os)]
+            all_on = bool(all_ids) and all(i in self.checked_artefacts for i in all_ids)
+            self.select_all_item.setCheckState(Qt.Checked if all_on else Qt.Unchecked)
         self.artefact_list.blockSignals(False)
 
     def load_hosts(self):
