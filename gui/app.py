@@ -607,24 +607,66 @@ class CollectTab(QWidget):
         self.populate_artefacts()
 
     def populate_artefacts(self):
-        self.artefact_list.blockSignals(True)     # don't fire itemChanged while building
-        self.artefact_list.clear()
-        for a in catalogue_for(self.current_os):
-            item = QListWidgetItem(a.name)
-            item.setSizeHint(QSize(0, 18))
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(Qt.Checked if a.id in self.checked_artefacts else Qt.Unchecked)
-            item.setData(Qt.UserRole, a.id)
-            self.artefact_list.addItem(item)
-        self.artefact_list.blockSignals(False)
+            self.artefact_list.blockSignals(True)
+            self.artefact_list.clear()
+
+            # "Select all" heading row
+            self.select_all_item = QListWidgetItem("Select All")
+            self.select_all_item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+            self.select_all_item.setData(Qt.UserRole, "__select_all__")
+            font = self.select_all_item.font()
+            font.setBold(True)
+            self.select_all_item.setFont(font)
+            self.select_all_item.setBackground(QColor(60, 60, 60))
+            self.select_all_item.setForeground(QColor(230, 230, 230))
+            self.artefact_list.addItem(self.select_all_item)
+
+            for a in catalogue_for(self.current_os):
+                item = QListWidgetItem(a.name)
+                item.setSizeHint(QSize(0, 22))
+                item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+                item.setCheckState(Qt.Checked if a.id in self.checked_artefacts else Qt.Unchecked)
+                item.setData(Qt.UserRole, a.id)
+                self.artefact_list.addItem(item)
+
+            self._sync_select_all()          # set the heading's state to match
+            self.artefact_list.blockSignals(False)
 
     def on_item_changed(self, item):
-        # keep the persistent set in sync as the user ticks/unticks
         aid = item.data(Qt.UserRole)
+
+        if aid == "__select_all__":
+            # Select-all toggled: apply to every artefact row.
+            check = item.checkState()
+            self.artefact_list.blockSignals(True)
+            for i in range(self.artefact_list.count()):
+                it = self.artefact_list.item(i)
+                if it.data(Qt.UserRole) == "__select_all__":
+                    continue
+                it.setCheckState(check)
+                a_id = it.data(Qt.UserRole)
+                if check == Qt.Checked:
+                    self.checked_artefacts.add(a_id)
+                else:
+                    self.checked_artefacts.discard(a_id)
+            self.artefact_list.blockSignals(False)
+            return
+
+        # A normal artefact toggled: update the set, then re-sync select-all.
         if item.checkState() == Qt.Checked:
             self.checked_artefacts.add(aid)
         else:
             self.checked_artefacts.discard(aid)
+        self._sync_select_all()
+
+    def _sync_select_all(self):
+        if not hasattr(self, "select_all_item"):
+            return
+        all_ids = [a.id for a in catalogue_for(self.current_os)]
+        all_checked = all(aid in self.checked_artefacts for aid in all_ids) and all_ids
+        self.artefact_list.blockSignals(True)
+        self.select_all_item.setCheckState(Qt.Checked if all_checked else Qt.Unchecked)
+        self.artefact_list.blockSignals(False)
 
     def load_hosts(self):
         self.host_list.clear()
@@ -768,8 +810,8 @@ def run():
         }
         QListWidget#artefactList { font-size: 12px; }
         QListWidget#artefactList::indicator {
-            width: 13px;
-            height: 13px;
+            width: 9px;
+            height: 9px;
         }
         QListWidget#artefactList::item {
             padding: 1px 4px;
