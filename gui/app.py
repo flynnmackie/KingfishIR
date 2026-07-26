@@ -297,8 +297,7 @@ class AccessTab(QWidget):
         self.host_table.setColumnWidth(0, 140)
         header.setSectionResizeMode(1, QHeaderView.Fixed)     # OS
         self.host_table.setColumnWidth(1, 110)
-        header.setSectionResizeMode(2, QHeaderView.Fixed)     # Profile
-        self.host_table.setColumnWidth(2, 120)
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)   # Profile - fits the combo
         header.setSectionResizeMode(3, QHeaderView.Stretch)   # WinRM
         header.setSectionResizeMode(4, QHeaderView.Stretch)   # SSH
         left.addWidget(self.host_table)
