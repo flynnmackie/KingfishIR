@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QComboBox, QListWidget, QListWidgetItem, QHeaderView
 )
 from PySide6.QtCore import QThread, Signal, QObject, Qt
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QIcon
 
 from core.discovery import expand_targets, discover
 from core.models import OSFamily
@@ -44,7 +44,7 @@ class AppState:
 
 class ScanWorker(QObject):
     host_found = Signal(object)
-    progress = Signal(int, int)      # done, total
+    progress = Signal(int, int, str)      # done, total
     finished = Signal(int)
     error = Signal(str)
 
@@ -57,19 +57,20 @@ class ScanWorker(QObject):
         self._stop = True
 
     def run(self):
-        total = len(self.ips)
-        done = 0
-        def on_host(host):
-            nonlocal done
-            done += 1
-            self.progress.emit(done, total)
-            if host.is_up:
-                self.host_found.emit(host)
-        try:
-            discover(self.ips, progress=on_host, should_stop=lambda: self._stop)
-        except Exception as exc:
-            self.error.emit(str(exc))
-        self.finished.emit(total)
+            total = len(self.ips)
+            self._done = 0
+            def on_start(ip):
+                self._done += 1
+                self.progress.emit(self._done, total, ip)     # announce as we begin
+            def on_host(host):
+                if host.is_up:
+                    self.host_found.emit(host)
+            try:
+                discover(self.ips, progress=on_host,
+                        should_stop=lambda: self._stop, on_start=on_start)
+            except Exception as exc:
+                self.error.emit(str(exc))
+            self.finished.emit(total)
 
 class VerifyWorker(QObject):
     """Runs verify_host for each host on a background thread."""
@@ -110,9 +111,6 @@ class DiscoveryTab(QWidget):
         row.addWidget(self.scan_btn)
 
         self.stop_btn = QPushButton("Stop")
-        self.stop_btn.setStyleSheet(
-            "QPushButton { background-color: #a33; color: white; }"
-            "QPushButton:hover { background-color: #c44; }")
         self.stop_btn.clicked.connect(self.on_stop)
         self.stop_btn.setEnabled(False)
         row.addWidget(self.stop_btn)
@@ -192,7 +190,7 @@ class DiscoveryTab(QWidget):
 
     def on_scan_done(self, total_scanned):
         self.scan_btn.setEnabled(True)
-        self.stop_btn.setEnabled(True)
+        self.stop_btn.setEnabled(False)
         self.scan_btn.setText("Scan")
         total = len(self.state.hosts)
         self.status_label.setText(f"{total} host(s) in list ({total_scanned} scanned this pass).")
@@ -203,8 +201,8 @@ class DiscoveryTab(QWidget):
             self.status_label.setText("Stopping…")
             self.stop_btn.setEnabled(False)
 
-    def on_progress(self, done, total):
-        self.status_label.setText(f"Scanning {done + 1} of {total} addresses…")
+    def on_progress(self, done, total, current_ip):
+        self.status_label.setText(f"Scanning {done} of {total} addresses… ({current_ip})")
 
     def add_row(self, h):
         r = self.table.rowCount()
@@ -623,6 +621,7 @@ class LogTab(QWidget):
 
 def run():
     app = QApplication([])
+    app.setWindowIcon(QIcon("kingfisher.ico"))
     app.setStyleSheet("""
         QWidget { background-color: #1e1e1e; color: #e0e0e0; }
         QLineEdit, QComboBox, QListWidget, QTableWidget {

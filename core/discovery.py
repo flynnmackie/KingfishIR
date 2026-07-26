@@ -104,68 +104,67 @@ def expand_targets(spec: str) -> list[str]:
 
 
 
-def discover(targets: Iterable[str], progress=None) -> list[Host]:
+def discover(targets: Iterable[str], progress=None, should_stop=None, on_start=None) -> list[Host]:
     """Probe each target and return Host objects with liveness + OS guess.
- 
+
     Liveness = a ping reply OR any hint port answering. OS guess combines the
     TTL read (primary) with open hint ports (corroboration) into a confidence
     of high / medium / low.
     """
     hosts: list[Host] = []
- 
+
     for ip in targets:
-        for ip in targets:
-            if should_stop and should_stop():      # cooperative cancellation
-                break
-            host = Host(ip=ip)
-            # ... existing probing ...
-            hosts.append(host)
-            if progress:
-                progress(host)
-        return hosts
+        if should_stop and should_stop():      # cooperative cancellation
+            break
+    
+        if on_start:
+            on_start(ip)
+
         host = Host(ip=ip)
- 
+
         # 1. Ping for a TTL.
         ttl = ping_ttl(ip)
- 
+
         # 2. Probe the hint ports (which ones are open?).
         win_ports_open = [p for p in WINDOWS_HINT_PORTS if tcp_port_open(ip, p)]
         nix_ports_open = [p for p in UNIX_HINT_PORTS if tcp_port_open(ip, p)]
- 
+
         # 3. Liveness: up if we got a TTL OR any port answered.
         host.is_up = (ttl is not None) or bool(win_ports_open or nix_ports_open)
- 
-        # 4. If it's not up, skip fingerprinting.
+
+        # 4. If it's not up, report it (for the counter) and skip fingerprinting.
         if not host.is_up:
             hosts.append(host)
+            if progress:
+                progress(host)
             continue
- 
+
         # 5. Fingerprint: combine TTL (primary) with hint ports (corroboration).
         ttl_guess = os_from_ttl(ttl)
- 
+
         if win_ports_open and not nix_ports_open:
             port_guess = OSFamily.WINDOWS
         elif nix_ports_open and not win_ports_open:
             port_guess = OSFamily.UNIX
         else:
             port_guess = OSFamily.UNKNOWN  # none open, or both (ambiguous)
- 
+
         if ttl_guess is not OSFamily.UNKNOWN and ttl_guess == port_guess:
             host.os_guess = ttl_guess
-            host.confidence = "high"      # TTL and a port agree
+            host.confidence = "high"
         elif ttl_guess is not OSFamily.UNKNOWN and port_guess is OSFamily.UNKNOWN:
             host.os_guess = ttl_guess
-            host.confidence = "medium"    # TTL only, nothing to corroborate
+            host.confidence = "medium"
         elif ttl_guess is OSFamily.UNKNOWN and port_guess is not OSFamily.UNKNOWN:
             host.os_guess = port_guess
-            host.confidence = "low"       # ports only, no usable TTL
+            host.confidence = "low"
         elif ttl_guess is not OSFamily.UNKNOWN and port_guess is not OSFamily.UNKNOWN:
-            host.os_guess = ttl_guess     # signals conflict; keep TTL, flag doubt
+            host.os_guess = ttl_guess
             host.confidence = "low"
         else:
             host.os_guess = OSFamily.UNKNOWN
             host.confidence = "low"
- 
+
         # Human-readable reason, for the results table and the log.
         parts = []
         if ttl is not None:
@@ -175,10 +174,9 @@ def discover(targets: Iterable[str], progress=None) -> list[Host]:
         if nix_ports_open:
             parts.append("ssh " + ",".join(str(p) for p in nix_ports_open))
         host.fingerprint_basis = ", ".join(parts) if parts else "no signal"
- 
+
         hosts.append(host)
         if progress:
             progress(host)
-        
- 
+
     return hosts
