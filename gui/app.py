@@ -204,49 +204,44 @@ class DiscoveryTab(QWidget):
     def on_progress(self, done, total, current_ip):
         self.status_label.setText(f"Scanning {done} of {total} addresses… ({current_ip})")
 
-    def add_row(self, rec):
-        r = self.table.rowCount()
-        self.table.insertRow(r)
-        cells = [rec.timestamp.split("T")[-1].split("+")[0], rec.host, rec.action,
-                 rec.artefact, rec.size_bytes, rec.match, rec.outcome, rec.detail]
-        for c, v in enumerate(cells):
-            item = QTableWidgetItem(str(v))
-            item.setToolTip(str(v))
-            self.table.setItem(r, c, item)
+    def add_row(self, h):
+            r = self.table.rowCount()
+            self.table.insertRow(r)
+            cells = [
+                h.ip,
+                "up",
+                h.last_scanned,
+                h.os_guess.value.capitalize(),
+                h.confidence.upper(),
+                h.fingerprint_basis,
+            ]
+            for c, val in enumerate(cells):
+                item = QTableWidgetItem(str(val))
+                self.table.setItem(r, c, item)
 
-        # richer tooltip on the Detail cell: include hashes when present
-        if rec.source_hash or rec.received_hash:
-            self.table.item(r, 7).setToolTip(
-                f"{rec.detail}\n\nsource:   {rec.source_hash}\nreceived: {rec.received_hash}")
+            for col in (1, 2, 3, 4):
+                self.table.item(r, col).setTextAlignment(Qt.AlignCenter)
 
-        if rec.match == "Y":
-            self.table.item(r, 5).setBackground(QColor(200, 230, 201))
-            self.table.item(r, 5).setForeground(QColor(20, 20, 20))
-        if rec.outcome == "error":
-            self.table.item(r, 6).setBackground(QColor(255, 205, 210))
-            self.table.item(r, 6).setForeground(QColor(20, 20, 20))
+            os_colour = _OS_COLOURS.get(h.os_guess)
+            if os_colour:
+                self.table.item(r, 3).setBackground(os_colour)
+                self.table.item(r, 3).setForeground(QColor(20, 20, 20))
+            conf_colour = _CONF_COLOURS.get(h.confidence)
+            if conf_colour:
+                self.table.item(r, 4).setBackground(conf_colour)
+                self.table.item(r, 4).setForeground(QColor(20, 20, 20))
 
-        # OS guess is now column 3, Confidence column 4.
-        os_colour = _OS_COLOURS.get(h.os_guess)
-        if os_colour:
-            self.table.item(r, 3).setBackground(os_colour)
-            self.table.item(r, 3).setForeground(QColor(20, 20, 20))
-        conf_colour = _CONF_COLOURS.get(h.confidence)
-        if conf_colour:
-            self.table.item(r, 4).setBackground(conf_colour)
-            self.table.item(r, 4).setForeground(QColor(20, 20, 20))
+            self.table.item(r, 1).setForeground(QColor(46, 125, 50))
 
-        self.table.item(r, 1).setForeground(QColor(46, 125, 50))
-        # Per-host remove button (captures IP, not row - rows shift on delete).
-        remove_btn = QPushButton("Remove")
-        remove_btn.setMaximumWidth(90)
-        remove_btn.setStyleSheet(
-            "QPushButton { background-color: #a33; color: white; padding: 2px 8px; }"
-            "QPushButton:hover { background-color: #c44; }"
-        )
-        remove_btn.clicked.connect(lambda _, ip=h.ip: self.remove_host(ip))
-        self.table.setCellWidget(r, 6, remove_btn)
-
+            # per-host remove button
+            remove_btn = QPushButton("Remove")
+            remove_btn.setMaximumWidth(90)
+            remove_btn.setStyleSheet(
+                "QPushButton { background-color: #a33; color: white; padding: 2px 8px; }"
+                "QPushButton:hover { background-color: #c44; }")
+            remove_btn.clicked.connect(lambda _, ip=h.ip: self.remove_host(ip))
+            self.table.setCellWidget(r, 6, remove_btn)
+    
     def refresh_row(self, h):
             from PySide6.QtCore import QTimer
             for r in range(self.table.rowCount()):
