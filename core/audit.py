@@ -49,6 +49,10 @@ class AuditLog:
         """Register an observer (e.g. the GUI log panel)."""
         self._observers.append(callback)
 
+    def unsubscribe(self, callback) -> None:
+        if callback in self._observers:
+            self._observers.remove(callback)
+
     def log(
         self,
         host: str,

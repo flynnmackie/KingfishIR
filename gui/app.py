@@ -517,42 +517,49 @@ class CollectWorker(QObject):
     def run(self):
         # live-feed the audit log into the Log tab
         self.audit.subscribe(self.log_row.emit)
-        for host in self.hosts:
-            transport = None
-            try:
-                profile = self.store.get(host.profile_name)
-                if host.actual_os is OSFamily.UNIX:
-                    transport = SSHTransport(host.ip, profile)
-                else:
-                    transport = WinRMTransport(host.ip, profile)
+        self.audit.log("-", "Collect Started", outcome="ok",
+                       detail=f"run {self.run_folder}")
+        try:
+            for host in self.hosts:
+                transport = None
+                try:
+                    profile = self.store.get(host.profile_name)
+                    if host.actual_os is OSFamily.UNIX:
+                        transport = SSHTransport(host.ip, profile)
+                    else:
+                        transport = WinRMTransport(host.ip, profile)
 
-                # session start
-                self.audit.log(host.ip, "session opened", outcome="ok",
-                               detail=f"connected to {host.hostname or host.ip}")
+                    # session start
+                    self.audit.log(host.ip, "session opened", outcome="ok",
+                                   detail=f"connected to {host.hostname or host.ip}")
 
-                catalogue = catalogue_for(host.actual_os)
-                chosen = [a for a in catalogue if a.id in self.selected_ids]
+                    catalogue = catalogue_for(host.actual_os)
+                    chosen = [a for a in catalogue if a.id in self.selected_ids]
 
-                results = collect_from_host(host, chosen, transport, self.audit,
-                                            out_root="collected", run_folder=self.run_folder)
-                ok = sum(1 for r in results if r.collected)
-                self.host_done.emit(host.ip, ok, len(results))
-            except Exception as exc:
-                self.error.emit(f"{host.ip}: {exc}")
-            finally:
-                # session end - always logged, even if collection failed
-                if transport is not None:
-                    try:
-                        transport.close()
-                    except Exception:
-                        pass
-                    self.audit.log(host.ip, "session closed", outcome="ok",
-                                   detail=f"disconnected from {host.hostname or host.ip}")
+                    results = collect_from_host(host, chosen, transport, self.audit,
+                                                out_root="collected", run_folder=self.run_folder)
+                    ok = sum(1 for r in results if r.collected)
+                    self.host_done.emit(host.ip, ok, len(results))
+                except Exception as exc:
+                    self.error.emit(f"{host.ip}: {exc}")
+                finally:
+                    # session end - always logged, even if collection failed
+                    if transport is not None:
+                        try:
+                            transport.close()
+                        except Exception:
+                            pass
+                        self.audit.log(host.ip, "session closed", outcome="ok",
+                                       detail=f"disconnected from {host.hostname or host.ip}")
 
-        # overall completion marker with the output location
-        self.audit.log("-", "collection complete", outcome="ok",
-                       detail=f"output saved to collected/{self.run_folder}/")
+            # overall completion marker with the output location
+            self.audit.log("-", "Collect Complete", outcome="ok",
+                           detail=f"output saved to collected/{self.run_folder}/")
+        finally:
+            self.audit.unsubscribe(self.log_row.emit)     # clean up so next run is fresh
+
         self.finished.emit(self.run_folder)
+
 
 class CollectTab(QWidget):
     def __init__(self, state: AppState, audit, log_tab):
@@ -749,7 +756,6 @@ class CollectTab(QWidget):
 
         self.collect_btn.setEnabled(False)
         self.collect_btn.setText("Collecting…")
-        self.log_tab.clear()
 
         run_folder = run_timestamp()
         self.c_thread = QThread()
@@ -762,6 +768,8 @@ class CollectTab(QWidget):
         self.c_worker.error.connect(lambda m: QMessageBox.warning(self, "Collection error", m))
         self.c_worker.finished.connect(self.on_done)
         self.c_worker.finished.connect(self.c_thread.quit)
+        self.c_worker.finished.connect(self.c_worker.deleteLater)
+        self.c_thread.finished.connect(self.c_thread.deleteLater)
         self.c_thread.start()
 
     def on_host_done(self, ip, ok, total):
@@ -803,9 +811,9 @@ class LogTab(QWidget):
         header.setSectionResizeMode(0, QHeaderView.Fixed)
         self.table.setColumnWidth(0, 85)
         header.setSectionResizeMode(1, QHeaderView.Fixed)
-        self.table.setColumnWidth(1, 115)
+        self.table.setColumnWidth(1, 100)
         header.setSectionResizeMode(2, QHeaderView.Fixed)
-        self.table.setColumnWidth(2, 90)
+        self.table.setColumnWidth(2, 115)
         header.setSectionResizeMode(3, QHeaderView.Fixed)
         self.table.setColumnWidth(3, 160)
         header.setSectionResizeMode(4, QHeaderView.Fixed)
@@ -849,7 +857,7 @@ class LogTab(QWidget):
 
         if rec.action == "collect" and (rec.source_hash or rec.received_hash):
             detail_item = self.table.item(r, 7)
-            detail_item.setText("View Hash")
+            detail_item.setText("View Hash (hover)")
             font = detail_item.font()
             font.setBold(True)
             detail_item.setFont(font)
@@ -859,7 +867,7 @@ class LogTab(QWidget):
         # ---- row colour by outcome / action ----
         if rec.action == "session opened":
             bg = QColor(120, 190, 120)       # dark-ish green, start marker
-        elif rec.action == "collection complete":
+        elif rec.action in ("Collect Complete", "Collect Started"):
             bg = QColor(160, 205, 235)       # blue, end-of-run marker
         elif rec.outcome == "error" or rec.match == "N":
             bg = QColor(240, 170, 175)       # red, failure / hash mismatch
