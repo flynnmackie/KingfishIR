@@ -309,6 +309,197 @@ class AccessTab(QWidget):
         btn_row.addWidget(self.load_btn)
         self.verify_btn = QPushButton("Verify access")
         self.verify_btn.clicked.connect(self.on_verify)
+        self.verify_btn.setEnabled(False)
+        btn_row.addWidget(self.verify_btn)
+        left.addLayout(btn_row)
+        layout.addLayout(left, 5)
+
+        # ---- Right: credential profile creation ----
+        right = QVBoxLayout()
+        right.addWidget(QLabel("Create credential profile"))
+
+        self.name_in = QLineEdit(); self.name_in.setPlaceholderText("Profile name")
+        self.kind_in = QComboBox(); self.kind_in.addItems(_KIND_CHOICES.keys())
+        self.domain_in = QLineEdit(); self.domain_in.setPlaceholderText("Domain")
+        self.user_in = QLineEdit(); self.user_in.setPlaceholderText("Username")
+        self.pass_in = QLineEdit(); self.pass_in.setPlaceholderText("Password")
+        self.pass_in.setEchoMode(QLineEdit.Password)
+        self.sudo_in = QLineEdit(); self.sudo_in.setPlaceholderText("Sudo password (optional)")
+        self.sudo_in.setEchoMode(QLineEdit.Password)
+
+        for w in (self.name_in, self.kind_in, self.domain_in,
+                  self.user_in, self.pass_in, self.sudo_in):
+            right.addWidget(w)
+
+        self.add_profile_btn = QPushButton("Add profile")
+        self.add_profile_btn.clicked.connect(self.add_profile)
+        right.addWidget(self.add_profile_btn)
+
+        right.addWidget(QLabel("Profiles"))
+        self.profile_list = QListWidget()
+        right.addWidget(self.profile_list)
+        right.addStretch()
+        layout.addLayout(right, 1)
+
+        # show/hide the right fields based on the selected kind
+        self.kind_in.currentTextChanged.connect(self.update_fields)
+        self.update_fields()          # set initial visibility
+
+    def update_fields(self):
+        """Show only the fields relevant to the selected credential kind."""
+        kind = _KIND_CHOICES[self.kind_in.currentText()]
+        is_domain = kind is CredKind.DOMAIN_KERBEROS
+        is_ssh = kind in (CredKind.SSH_KEY, CredKind.SSH_PASSWORD)
+        # Domain field only for Windows domain; sudo field only for Linux.
+        self.domain_in.setVisible(is_domain)
+        self.sudo_in.setVisible(is_ssh)
+
+    # ---- profile creation ----
+    def add_profile(self):
+        name = self.name_in.text().strip()
+        user = self.user_in.text().strip()
+        if not name or not user:
+            QMessageBox.warning(self, "Missing fields", "Profile needs at least a name and username.")
+            return
+        kind = _KIND_CHOICES[self.kind_in.currentText()]
+        profile = CredentialProfile(
+            name=name, kind=kind, username=user,
+            secret=self.pass_in.text(),
+            domain=self.domain_in.text().strip() or None,
+            sudo_secret=self.sudo_in.text(),
+        )
+        self.state.store.add(profile)
+        self.refresh_profiles()
+        for w in (self.name_in, self.domain_in, self.user_in, self.pass_in, self.sudo_in):
+            w.clear()
+
+    def refresh_profiles(self):
+        self.profile_list.clear()
+        self.profile_list.addItems(self.state.store.names())
+        for r in range(self.host_table.rowCount()):
+            combo = self.host_table.cellWidget(r, 2)
+            if combo:
+                current = combo.currentText()
+                combo.clear()
+                combo.addItem("— none —")
+                combo.addItems(self.state.store.names())
+                combo.setCurrentText(current)
+
+    # ---- host loading ----
+    def load_hosts(self):
+        hosts = self.state.hosts
+        self.host_table.setRowCount(0)
+        for h in hosts:
+            r = self.host_table.rowCount()
+            self.host_table.insertRow(r)
+            host_item = QTableWidgetItem(h.ip)
+            host_item.setTextAlignment(Qt.AlignCenter)
+            font = host_item.font()
+            font.setBold(True)
+            host_item.setFont(font)
+            self.host_table.setItem(r, 0, host_item)
+            os_item = QTableWidgetItem(h.os_guess.value.capitalize())
+            os_item.setTextAlignment(Qt.AlignCenter)
+            os_colour = _OS_COLOURS.get(h.os_guess)
+            if os_colour:
+                os_item.setBackground(os_colour)
+                os_item.setForeground(QColor(20, 20, 20))
+            self.host_table.setItem(r, 1, os_item)
+            combo = QComboBox()
+            combo.setStyleSheet("QComboBox { text-align: center; }")
+            combo.setMaximumWidth(120)
+            combo.addItem("— none —")
+            combo.addItems(self.state.store.names())
+            self.host_table.setCellWidget(r, 2, combo)
+            self.host_table.setItem(r, 3, QTableWidgetItem("—"))
+            self.host_table.setItem(r, 4, QTableWidgetItem("—"))
+        self.verify_btn.setEnabled(len(hosts) > 0)
+
+    def on_verify(self):
+        hosts = self.state.hosts
+        for r, host in enumerate(hosts):
+            combo = self.host_table.cellWidget(r, 2)
+            choice = combo.currentText() if combo else "— none —"
+            host.profile_name = None if choice == "— none —" else choice
+
+        if not any(h.profile_name for h in hosts):
+            QMessageBox.warning(self, "No profiles assigned",
+                                "Assign a credential profile to at least one host first.")
+            return
+
+        self.verify_btn.setEnabled(False)
+        self.verify_btn.setText("Verifying…")
+
+        self.v_thread = QThread()
+        self.v_worker = VerifyWorker(hosts, self.state.store, self.audit)
+        self.v_worker.moveToThread(self.v_thread)
+        self.v_thread.started.connect(self.v_worker.run)
+        self.v_worker.host_done.connect(self.on_host_verified)
+        self.v_worker.finished.connect(self.on_verify_done)
+        self.v_worker.finished.connect(self.v_thread.quit)
+        self.v_thread.start()
+
+    def on_host_verified(self, host):
+        for r in range(self.host_table.rowCount()):
+            if self.host_table.item(r, 0).text() == host.ip:
+                self._set_state_cell(r, 3, host.winrm_state, host.hostname)
+                self._set_state_cell(r, 4, host.ssh_state, host.hostname)
+                break
+
+    def on_verify_done(self):
+        self.verify_btn.setEnabled(True)
+        self.verify_btn.setText("Verify access")
+
+    def _set_state_cell(self, row, col, state, hostname=None):
+        labels = {
+            AccessState.AUTHENTICATED: ("authenticated", QColor(200, 230, 201)),
+            AccessState.PRESENT_NO_AUTH: ("creds rejected", QColor(255, 205, 210)),
+            AccessState.ABSENT: ("absent", QColor(224, 224, 224)),
+        }
+        text, colour = labels.get(state, ("—", None))
+        if state is AccessState.AUTHENTICATED and hostname:
+            text = f"authenticated · {hostname}"
+        item = QTableWidgetItem(text)
+        item.setTextAlignment(Qt.AlignCenter)
+        if colour:
+            item.setBackground(colour)
+            item.setForeground(QColor(20, 20, 20))
+        if state is AccessState.AUTHENTICATED and hostname:
+            font = item.font()
+            font.setBold(True)
+            item.setFont(font)
+        self.host_table.setItem(row, col, item)
+    def __init__(self, state: AppState):
+        super().__init__()
+        self.state = state
+        from core.audit import AuditLog
+        self.audit = AuditLog("triage_audit.csv")
+        layout = QHBoxLayout(self)
+
+        # ---- Left: host table with a profile dropdown per row ----
+        left = QVBoxLayout()
+        left.addWidget(QLabel("Discovered hosts"))
+        self.host_table = QTableWidget(0, 5)
+        self.host_table.setHorizontalHeaderLabels(
+            ["Host", "OS", "Profile", "WinRM", "SSH"])
+        header = self.host_table.horizontalHeader()
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(0, QHeaderView.Fixed)     # Host
+        self.host_table.setColumnWidth(0, 120)
+        header.setSectionResizeMode(1, QHeaderView.Fixed)     # OS
+        self.host_table.setColumnWidth(1, 110)
+        header.setSectionResizeMode(2, QHeaderView.Fixed)     # Profile
+        self.host_table.setColumnWidth(2, 150)
+        header.setSectionResizeMode(3, QHeaderView.Stretch)   # WinRM
+        header.setSectionResizeMode(4, QHeaderView.Stretch)   # SSH
+        left.addWidget(self.host_table)
+
+        btn_row = QHBoxLayout()
+        self.load_btn = QPushButton("Load hosts from discovery")
+        self.load_btn.clicked.connect(self.load_hosts)
+        btn_row.addWidget(self.load_btn)
+        self.verify_btn = QPushButton("Verify access")
+        self.verify_btn.clicked.connect(self.on_verify)
         self.verify_btn.setEnabled(False)          # enabled in stage two
         btn_row.addWidget(self.verify_btn)
         left.addLayout(btn_row)
