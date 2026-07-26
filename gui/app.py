@@ -374,7 +374,27 @@ class AccessTab(QWidget):
 
     def refresh_profiles(self):
         self.profile_list.clear()
-        self.profile_list.addItems(self.state.store.names())
+        for name in self.state.store.names():
+            # a row: profile name + a small red delete button
+            row = QWidget()
+            row_lay = QHBoxLayout(row)
+            row_lay.setContentsMargins(4, 2, 4, 2)
+            row_lay.addWidget(QLabel(name))
+            row_lay.addStretch()
+            del_btn = QPushButton("Delete")
+            del_btn.setMaximumWidth(70)
+            del_btn.setStyleSheet(
+                "QPushButton { background-color: #a33; color: white; padding: 2px 8px; }"
+                "QPushButton:hover { background-color: #c44; }")
+            del_btn.clicked.connect(lambda _, n=name: self.delete_profile(n))
+            row_lay.addWidget(del_btn)
+
+            item = QListWidgetItem()
+            item.setSizeHint(row.sizeHint())
+            self.profile_list.addItem(item)
+            self.profile_list.setItemWidget(item, row)
+
+        # keep every host row's dropdown in sync with the current profiles
         for r in range(self.host_table.rowCount()):
             combo = self.host_table.cellWidget(r, 2)
             if combo:
@@ -382,7 +402,7 @@ class AccessTab(QWidget):
                 combo.clear()
                 combo.addItem("— none —")
                 combo.addItems(self.state.store.names())
-                combo.setCurrentText(current)
+                combo.setCurrentText(current if current in self.state.store.names() else "— none —")
 
     # ---- host loading ----
     def load_hosts(self):
@@ -413,6 +433,14 @@ class AccessTab(QWidget):
             self.host_table.setItem(r, 3, QTableWidgetItem("—"))
             self.host_table.setItem(r, 4, QTableWidgetItem("—"))
         self.verify_btn.setEnabled(len(hosts) > 0)
+
+    def delete_profile(self, name):
+        self.state.store.remove(name)
+        # unassign it from any host that was using it
+        for h in self.state.hosts:
+            if h.profile_name == name:
+                h.profile_name = None
+        self.refresh_profiles()
 
     def on_verify(self):
         hosts = self.state.hosts
