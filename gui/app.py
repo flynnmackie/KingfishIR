@@ -221,6 +221,7 @@ class DiscoveryTab(QWidget):
 
             for col in (1, 2, 3, 4):
                 self.table.item(r, col).setTextAlignment(Qt.AlignCenter)
+                
 
             os_colour = _OS_COLOURS.get(h.os_guess)
             if os_colour:
@@ -805,7 +806,8 @@ class LogTab(QWidget):
         self.table.setColumnWidth(1, 115)
         header.setSectionResizeMode(2, QHeaderView.Fixed)
         self.table.setColumnWidth(2, 90)
-        header.setSectionResizeMode(3, QHeaderView.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.Fixed)
+        self.table.setColumnWidth(3, 160)
         header.setSectionResizeMode(4, QHeaderView.Fixed)
         self.table.setColumnWidth(4, 80)
         header.setSectionResizeMode(5, QHeaderView.Fixed)
@@ -844,6 +846,15 @@ class LogTab(QWidget):
         if rec.source_hash or rec.received_hash:
             self.table.item(r, 7).setToolTip(
                 f"{rec.detail}\n\nsource:   {rec.source_hash}\nreceived: {rec.received_hash}")
+
+        if rec.action == "collect" and (rec.source_hash or rec.received_hash):
+            detail_item = self.table.item(r, 7)
+            detail_item.setText("View Hash")
+            font = detail_item.font()
+            font.setBold(True)
+            detail_item.setFont(font)
+            detail_item.setToolTip(
+                f"source:   {rec.source_hash}\nreceived: {rec.received_hash}")
 
         # ---- row colour by outcome / action ----
         if rec.action == "session opened":
