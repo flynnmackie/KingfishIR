@@ -47,15 +47,15 @@ class WinRMTransport(Transport):
         return self._client
 
     def test_access(self) -> AccessState:
-        # 1. Is the WinRM port open at all?
+        self.hostname = None
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.settimeout(1.0)
             if s.connect_ex((self.host_ip, WINRM_HTTP_PORT)) != 0:
                 return AccessState.ABSENT
-        # 2. Port open - do the credentials authenticate?
         try:
             client = self._connect()
-            client.execute_ps("$env:COMPUTERNAME")   # trivial probe command
+            out, _streams, _err = client.execute_ps("$env:COMPUTERNAME")
+            self.hostname = out.strip() or None
         except Exception:
             return AccessState.PRESENT_NO_AUTH
         return AccessState.AUTHENTICATED

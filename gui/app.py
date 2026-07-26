@@ -430,11 +430,8 @@ class AccessTab(QWidget):
         self.v_thread.start()
 
     def on_host_verified(self, host):
-        # Find this host's row and colour its WinRM/SSH cells.
         for r in range(self.host_table.rowCount()):
             if self.host_table.item(r, 0).text() == host.ip:
-                self._set_state_cell(r, 3, host.winrm_state)
-                self._set_state_cell(r, 4, host.ssh_state)
                 self._set_state_cell(r, 3, host.winrm_state, host.hostname)
                 self._set_state_cell(r, 4, host.ssh_state, host.hostname)
                 break
