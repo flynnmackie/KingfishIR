@@ -573,6 +573,7 @@ class CollectTab(QWidget):
         right.addLayout(toggle_row)
 
         self.artefact_list = QListWidget()
+        self.artefact_list.setFocusPolicy(Qt.NoFocus)
         self.artefact_list.setSelectionMode(QListWidget.NoSelection)
         self.artefact_list.itemChanged.connect(self.on_item_changed)
         self.artefact_list.setObjectName("artefactList")
