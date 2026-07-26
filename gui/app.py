@@ -780,23 +780,22 @@ class LogTab(QWidget):
         self.table = QTableWidget(0, 8)
         self.table.setObjectName("logTable")
         self.table.setHorizontalHeaderLabels(
-            ["Time", "Host", "Action", "Artefact", "Size", "Match", "Outcome", "Detail"])
+            ["Time", "Host", "Action", "Artefact", "Size", "Hash Match", "Outcome", "Detail"])
         header = self.table.horizontalHeader()
-        header.setStretchLastSection(True)                     # Detail takes the slack
-        header.setSectionResizeMode(0, QHeaderView.Fixed)      # Time
+        header.setStretchLastSection(True)
+        header.setSectionResizeMode(0, QHeaderView.Fixed)
         self.table.setColumnWidth(0, 85)
-        header.setSectionResizeMode(1, QHeaderView.Fixed)      # Host
+        header.setSectionResizeMode(1, QHeaderView.Fixed)
         self.table.setColumnWidth(1, 115)
-        header.setSectionResizeMode(2, QHeaderView.Fixed)      # Action
+        header.setSectionResizeMode(2, QHeaderView.Fixed)
         self.table.setColumnWidth(2, 90)
-        header.setSectionResizeMode(3, QHeaderView.Stretch)    # Artefact
-        header.setSectionResizeMode(4, QHeaderView.Fixed)      # Size
+        header.setSectionResizeMode(3, QHeaderView.Stretch)
+        header.setSectionResizeMode(4, QHeaderView.Fixed)
         self.table.setColumnWidth(4, 80)
-        header.setSectionResizeMode(5, QHeaderView.Fixed)      # Match
-        self.table.setColumnWidth(5, 55)
-        header.setSectionResizeMode(6, QHeaderView.Fixed)      # Outcome
+        header.setSectionResizeMode(5, QHeaderView.Fixed)
+        self.table.setColumnWidth(5, 85)
+        header.setSectionResizeMode(6, QHeaderView.Fixed)
         self.table.setColumnWidth(6, 90)
-        # column 7 (Detail) = stretch last section
         self.table.verticalHeader().setDefaultSectionSize(20)
         layout.addWidget(self.table)
 
@@ -806,14 +805,30 @@ class LogTab(QWidget):
     def add_row(self, rec):
         r = self.table.rowCount()
         self.table.insertRow(r)
+
+        # Hash Match: Y/N if a comparison happened; N/A if none was expected.
+        if rec.match in ("Y", "N"):
+            match_text = rec.match
+        else:
+            match_text = "N/A"
+
         cells = [rec.timestamp.split("T")[-1].split("+")[0], rec.host, rec.action,
-                 rec.artefact, rec.size_bytes, rec.match, rec.outcome, rec.detail]
+                 rec.artefact, rec.size_bytes, match_text, rec.outcome, rec.detail]
         for c, v in enumerate(cells):
             item = QTableWidgetItem(str(v))
             item.setToolTip(str(v))
             self.table.setItem(r, c, item)
+
+        # richer tooltip on the Detail cell: include the hashes when present
+        if rec.source_hash or rec.received_hash:
+            self.table.item(r, 7).setToolTip(
+                f"{rec.detail}\n\nsource:   {rec.source_hash}\nreceived: {rec.received_hash}")
+
         if rec.match == "Y":
             self.table.item(r, 5).setBackground(QColor(200, 230, 201))
+            self.table.item(r, 5).setForeground(QColor(20, 20, 20))
+        elif rec.match == "N":
+            self.table.item(r, 5).setBackground(QColor(255, 205, 210))   # mismatch = red
             self.table.item(r, 5).setForeground(QColor(20, 20, 20))
         if rec.outcome == "error":
             self.table.item(r, 6).setBackground(QColor(255, 205, 210))
