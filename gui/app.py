@@ -813,6 +813,7 @@ class LogTab(QWidget):
         header.setSectionResizeMode(6, QHeaderView.Fixed)
         self.table.setColumnWidth(6, 90)
         self.table.verticalHeader().setDefaultSectionSize(20)
+        self.table.setTextElideMode(Qt.ElideNone)
         layout.addWidget(self.table)
 
     def clear(self):
@@ -822,7 +823,6 @@ class LogTab(QWidget):
         r = self.table.rowCount()
         self.table.insertRow(r)
 
-        # Hash Match: Y/N if a comparison happened; N/A if none was expected.
         if rec.match in ("Y", "N"):
             match_text = rec.match
         else:
@@ -835,20 +835,29 @@ class LogTab(QWidget):
             item.setToolTip(str(v))
             self.table.setItem(r, c, item)
 
-        # richer tooltip on the Detail cell: include the hashes when present
+        if rec.action == "collect":
+            item = self.table.item(r, 2)
+            font = item.font()
+            font.setBold(True)
+            item.setFont(font)
+
         if rec.source_hash or rec.received_hash:
             self.table.item(r, 7).setToolTip(
                 f"{rec.detail}\n\nsource:   {rec.source_hash}\nreceived: {rec.received_hash}")
 
-        if rec.match == "Y":
-            self.table.item(r, 5).setBackground(QColor(200, 230, 201))
-            self.table.item(r, 5).setForeground(QColor(20, 20, 20))
-        elif rec.match == "N":
-            self.table.item(r, 5).setBackground(QColor(255, 205, 210))   # mismatch = red
-            self.table.item(r, 5).setForeground(QColor(20, 20, 20))
-        if rec.outcome == "error":
-            self.table.item(r, 6).setBackground(QColor(255, 205, 210))
-            self.table.item(r, 6).setForeground(QColor(20, 20, 20))
+        # ---- row colour by outcome / action ----
+        if rec.action == "session opened":
+            bg = QColor(120, 190, 120)       # dark-ish green, start marker
+        elif rec.action == "collection complete":
+            bg = QColor(160, 205, 235)       # blue, end-of-run marker
+        elif rec.outcome == "error" or rec.match == "N":
+            bg = QColor(240, 170, 175)       # red, failure / hash mismatch
+        else:
+            bg = QColor(170, 210, 170)       # light green, success
+
+        for c in range(self.table.columnCount()):
+            self.table.item(r, c).setBackground(bg)
+            self.table.item(r, c).setForeground(QColor(20, 20, 20))
 
 def run():
     app = QApplication([])
