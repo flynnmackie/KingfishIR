@@ -204,23 +204,27 @@ class DiscoveryTab(QWidget):
     def on_progress(self, done, total, current_ip):
         self.status_label.setText(f"Scanning {done} of {total} addresses… ({current_ip})")
 
-    def add_row(self, h):
+    def add_row(self, rec):
         r = self.table.rowCount()
         self.table.insertRow(r)
-        cells = [
-            h.ip,
-            "UP",
-            h.last_scanned,
-            h.os_guess.value.capitalize(),
-            h.confidence.upper(),
-            h.fingerprint_basis,
-        ]
-        for c, val in enumerate(cells):
-            item = QTableWidgetItem(str(val))
+        cells = [rec.timestamp.split("T")[-1].split("+")[0], rec.host, rec.action,
+                 rec.artefact, rec.size_bytes, rec.match, rec.outcome, rec.detail]
+        for c, v in enumerate(cells):
+            item = QTableWidgetItem(str(v))
+            item.setToolTip(str(v))
             self.table.setItem(r, c, item)
 
-        for col in (1, 2, 3, 4):          # Status, Last Scanned, OS, Confidence
-            self.table.item(r, col).setTextAlignment(Qt.AlignCenter)
+        # richer tooltip on the Detail cell: include hashes when present
+        if rec.source_hash or rec.received_hash:
+            self.table.item(r, 7).setToolTip(
+                f"{rec.detail}\n\nsource:   {rec.source_hash}\nreceived: {rec.received_hash}")
+
+        if rec.match == "Y":
+            self.table.item(r, 5).setBackground(QColor(200, 230, 201))
+            self.table.item(r, 5).setForeground(QColor(20, 20, 20))
+        if rec.outcome == "error":
+            self.table.item(r, 6).setBackground(QColor(255, 205, 210))
+            self.table.item(r, 6).setForeground(QColor(20, 20, 20))
 
         # OS guess is now column 3, Confidence column 4.
         os_colour = _OS_COLOURS.get(h.os_guess)
@@ -810,7 +814,9 @@ class LogTab(QWidget):
         cells = [rec.timestamp.split("T")[-1].split("+")[0], rec.host, rec.action,
                  rec.artefact, rec.size_bytes, rec.match, rec.outcome, rec.detail]
         for c, v in enumerate(cells):
-            self.table.setItem(r, c, QTableWidgetItem(str(v)))
+            item = QTableWidgetItem(str(v))
+            item.setToolTip(str(v))
+            self.table.setItem(r, c, item)
         if rec.match == "Y":
             self.table.item(r, 5).setBackground(QColor(200, 230, 201))
             self.table.item(r, 5).setForeground(QColor(20, 20, 20))
