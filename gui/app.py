@@ -770,6 +770,9 @@ def run():
             width: 13px;
             height: 13px;
         }
+        QListWidget#artefactList::item {
+            padding: 1px 4px;
+        }
     """)
     window = MainWindow()
     window.show()
