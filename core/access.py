@@ -27,8 +27,10 @@ def verify_host(host: Host, store: CredentialStore, audit: AuditLog | None = Non
     profile = store.get(host.profile_name) if host.profile_name else None
     if profile is None:
         if audit:
-            audit.log(host.ip, "verify", outcome="no profile assigned")
-        return host
+            hn = f", hostname={host.hostname}" if host.hostname else ""
+            audit.log(host.ip, "verify",
+                      outcome=f"{channel}: {_STATE_TEXT[state]}",
+                      detail=f"profile={profile.name}, mechanism={profile.kind.value}{hn}")
 
     # 2. Choose the transport based on the credential kind.
     if profile.kind in (CredKind.SSH_KEY, CredKind.SSH_PASSWORD):
@@ -47,6 +49,7 @@ def verify_host(host: Host, store: CredentialStore, audit: AuditLog | None = Non
 
     # 4. A successful auth CONFIRMS the OS family (turns the guess into fact).
     if state is AccessState.AUTHENTICATED:
+        host.hostname = getattr(transport, "hostname", None)
         host.actual_os = OSFamily.UNIX if channel == "ssh" else OSFamily.WINDOWS
 
     # 5. Log the outcome - mechanism and result, never the secret (NFR2/NFR4).

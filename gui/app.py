@@ -435,23 +435,32 @@ class AccessTab(QWidget):
             if self.host_table.item(r, 0).text() == host.ip:
                 self._set_state_cell(r, 3, host.winrm_state)
                 self._set_state_cell(r, 4, host.ssh_state)
+                self._set_state_cell(r, 3, host.winrm_state, host.hostname)
+                self._set_state_cell(r, 4, host.ssh_state, host.hostname)
                 break
 
     def on_verify_done(self):
         self.verify_btn.setEnabled(True)
         self.verify_btn.setText("Verify access")
 
-    def _set_state_cell(self, row, col, state):
+    def _set_state_cell(self, row, col, state, hostname=None):
         labels = {
             AccessState.AUTHENTICATED: ("authenticated", QColor(200, 230, 201)),
             AccessState.PRESENT_NO_AUTH: ("creds rejected", QColor(255, 205, 210)),
             AccessState.ABSENT: ("absent", QColor(224, 224, 224)),
         }
         text, colour = labels.get(state, ("—", None))
+        if state is AccessState.AUTHENTICATED and hostname:
+            text = f"authenticated · {hostname}"
         item = QTableWidgetItem(text)
-        item.setForeground(QColor(20, 20, 20))
+        item.setTextAlignment(Qt.AlignCenter)
         if colour:
             item.setBackground(colour)
+            item.setForeground(QColor(20, 20, 20))
+        if state is AccessState.AUTHENTICATED and hostname:
+            font = item.font()
+            font.setBold(True)
+            item.setFont(font)
         self.host_table.setItem(row, col, item)
 
 class CollectWorker(QObject):

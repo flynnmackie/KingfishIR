@@ -54,18 +54,21 @@ class SSHTransport(Transport):
         return client
 
     def test_access(self) -> AccessState:
-        # 1. Is port 22 even open? If not -> no channel here.
+        self.hostname = None
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.settimeout(1.0)
             if s.connect_ex((self.host_ip, SSH_PORT)) != 0:
                 return AccessState.ABSENT
-        # 2. Port open - do the credentials work?
         try:
             self._connect()
         except paramiko.AuthenticationException:
             return AccessState.PRESENT_NO_AUTH
         except (paramiko.SSHException, OSError):
             return AccessState.PRESENT_NO_AUTH
+        try:
+            self.hostname = self.run_command("hostname").decode(errors="replace").strip() or None
+        except Exception:
+            self.hostname = None
         return AccessState.AUTHENTICATED
 
     def run_command(self, command: str, use_sudo: bool = False) -> bytes:
