@@ -589,7 +589,7 @@ class CollectTab(QWidget):
             for a in catalogue_for(os_family):
                 item = QListWidgetItem(f"    {a.name}")
                 item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-                item.setCheckState(Qt.Checked)
+                item.setCheckState(Qt.Unchecked)
                 item.setData(Qt.UserRole, a.id)
                 self.artefact_list.addItem(item)
 
@@ -605,7 +605,7 @@ class CollectTab(QWidget):
                 label = f"{h.ip} · {h.hostname}"
             item = QListWidgetItem(label)
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(Qt.Checked)
+            item.setCheckState(Qt.Unchecked)
             item.setData(Qt.UserRole, h.ip)
             # colour a left border-ish cue by tinting the row per OS
             os_colour = _OS_COLOURS.get(h.actual_os)
@@ -731,6 +731,13 @@ def run():
         QListWidget::indicator {
             width: 16px;
             height: 16px;
+            border: 1px solid #6a6a6a;
+            border-radius: 3px;
+            background-color: #4a4a4a;
+        }
+        QListWidget::indicator:checked {
+            background-color: #1b5e20;
+            border: 1px solid #43a047;
         }
     """)
     window = MainWindow()
