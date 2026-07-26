@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QMessageBox,
     QComboBox, QListWidget, QListWidgetItem, QHeaderView
 )
-from PySide6.QtCore import QThread, Signal, QObject, Qt
+from PySide6.QtCore import QThread, Signal, QObject, Qt, QSize
 from PySide6.QtGui import QColor, QIcon
 
 from core.discovery import expand_targets, discover
@@ -544,6 +544,8 @@ class CollectTab(QWidget):
         self.state = state
         self.audit = audit
         self.log_tab = log_tab
+        self.current_os = OSFamily.WINDOWS
+        self.checked_artefacts = set()      # artefact ids checked, survives OS switch
         layout = QHBoxLayout(self)
 
         # ---- Left: host checklist ----
@@ -556,12 +558,26 @@ class CollectTab(QWidget):
         left.addWidget(self.load_btn)
         layout.addLayout(left, 1)
 
-        # ---- Right: artefact selection ----
+        # ---- Right: artefact selection with OS toggle ----
         right = QVBoxLayout()
         right.addWidget(QLabel("Artefacts to collect"))
+
+        toggle_row = QHBoxLayout()
+        toggle_row.setSpacing(0)
+        self.win_btn = QPushButton("Windows")
+        self.win_btn.clicked.connect(lambda: self.switch_os(OSFamily.WINDOWS))
+        self.unix_btn = QPushButton("Unix")
+        self.unix_btn.clicked.connect(lambda: self.switch_os(OSFamily.UNIX))
+        toggle_row.addWidget(self.win_btn)
+        toggle_row.addWidget(self.unix_btn)
+        right.addLayout(toggle_row)
+
         self.artefact_list = QListWidget()
-        self.populate_artefacts()
+        self.artefact_list.setSelectionMode(QListWidget.NoSelection)
+        self.artefact_list.itemChanged.connect(self.on_item_changed)
+        self.artefact_list.setObjectName("artefactList")
         right.addWidget(self.artefact_list)
+
         self.collect_btn = QPushButton("Start collection")
         self.collect_btn.clicked.connect(self.on_collect)
         right.addWidget(self.collect_btn)
@@ -569,29 +585,45 @@ class CollectTab(QWidget):
         right.addWidget(self.status)
         layout.addLayout(right, 1)
 
+        self.switch_os(OSFamily.WINDOWS)     # initial view
+
+    def _toggle_style(self, active):
+        """Return (windows_style, unix_style) with the active side underlined."""
+        blue, orange = "#bbdefb", "#ffe0b2"        # match _OS_COLOURS
+        win_border = "4px solid #1976d2" if active is OSFamily.WINDOWS else "4px solid transparent"
+        unix_border = "4px solid #e07a24" if active is OSFamily.UNIX else "4px solid transparent"
+        win = (f"QPushButton {{ background-color: {blue}; color: #141414; "
+               f"border: none; border-bottom: {win_border}; padding: 8px; }}")
+        unix = (f"QPushButton {{ background-color: {orange}; color: #141414; "
+                f"border: none; border-bottom: {unix_border}; padding: 8px; }}")
+        return win, unix
+
+    def switch_os(self, os_family):
+        self.current_os = os_family
+        win_style, unix_style = self._toggle_style(os_family)
+        self.win_btn.setStyleSheet(win_style)
+        self.unix_btn.setStyleSheet(unix_style)
+        self.populate_artefacts()
+
     def populate_artefacts(self):
-        headers = {
-            OSFamily.WINDOWS: ("Windows", _OS_COLOURS.get(OSFamily.WINDOWS)),
-            OSFamily.UNIX: ("Unix", _OS_COLOURS.get(OSFamily.UNIX)),
-        }
-        for os_family in (OSFamily.WINDOWS, OSFamily.UNIX):
-            label, colour = headers[os_family]
-            hdr = QListWidgetItem(label)
-            hdr.setFlags(Qt.NoItemFlags)                 # non-selectable header
-            font = hdr.font()
-            font.setBold(True)
-            hdr.setFont(font)
-            if colour:
-                hdr.setBackground(colour)
-                hdr.setForeground(QColor(20, 20, 20))
-            hdr.setTextAlignment(Qt.AlignCenter)
-            self.artefact_list.addItem(hdr)
-            for a in catalogue_for(os_family):
-                item = QListWidgetItem(f"    {a.name}")
-                item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-                item.setCheckState(Qt.Unchecked)
-                item.setData(Qt.UserRole, a.id)
-                self.artefact_list.addItem(item)
+        self.artefact_list.blockSignals(True)     # don't fire itemChanged while building
+        self.artefact_list.clear()
+        for a in catalogue_for(self.current_os):
+            item = QListWidgetItem(a.name)
+            item.setSizeHint(QSize(0, 18))
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(Qt.Checked if a.id in self.checked_artefacts else Qt.Unchecked)
+            item.setData(Qt.UserRole, a.id)
+            self.artefact_list.addItem(item)
+        self.artefact_list.blockSignals(False)
+
+    def on_item_changed(self, item):
+        # keep the persistent set in sync as the user ticks/unticks
+        aid = item.data(Qt.UserRole)
+        if item.checkState() == Qt.Checked:
+            self.checked_artefacts.add(aid)
+        else:
+            self.checked_artefacts.discard(aid)
 
     def load_hosts(self):
         self.host_list.clear()
@@ -600,14 +632,11 @@ class CollectTab(QWidget):
                       h.ssh_state is AccessState.AUTHENTICATED)
             if not authed:
                 continue
-            label = h.ip
-            if h.hostname:
-                label = f"{h.ip} · {h.hostname}"
+            label = f"{h.ip} · {h.hostname}" if h.hostname else h.ip
             item = QListWidgetItem(label)
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             item.setCheckState(Qt.Unchecked)
             item.setData(Qt.UserRole, h.ip)
-            # colour a left border-ish cue by tinting the row per OS
             os_colour = _OS_COLOURS.get(h.actual_os)
             if os_colour:
                 item.setForeground(os_colour)
@@ -621,10 +650,7 @@ class CollectTab(QWidget):
                       for i in range(self.host_list.count())
                       if self.host_list.item(i).checkState() == Qt.Checked}
         hosts = [h for h in self.state.hosts if h.ip in chosen_ips]
-        selected_ids = {self.artefact_list.item(i).data(Qt.UserRole)
-                        for i in range(self.artefact_list.count())
-                        if self.artefact_list.item(i).flags() & Qt.ItemIsUserCheckable
-                        and self.artefact_list.item(i).checkState() == Qt.Checked}
+        selected_ids = set(self.checked_artefacts)      # from the persistent set
 
         if not hosts or not selected_ids:
             QMessageBox.warning(self, "Nothing selected",
@@ -738,6 +764,11 @@ def run():
         QListWidget::indicator:checked {
             background-color: #1b5e20;
             border: 1px solid #43a047;
+        }
+        QListWidget#artefactList { font-size: 12px; }
+        QListWidget#artefactList::indicator {
+            width: 13px;
+            height: 13px;
         }
     """)
     window = MainWindow()
