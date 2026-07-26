@@ -298,7 +298,7 @@ class AccessTab(QWidget):
         header.setSectionResizeMode(1, QHeaderView.Fixed)     # OS
         self.host_table.setColumnWidth(1, 110)
         header.setSectionResizeMode(2, QHeaderView.Fixed)     # Profile
-        self.host_table.setColumnWidth(2, 180)
+        self.host_table.setColumnWidth(2, 120)
         header.setSectionResizeMode(3, QHeaderView.Stretch)   # WinRM
         header.setSectionResizeMode(4, QHeaderView.Stretch)   # SSH
         left.addWidget(self.host_table)
@@ -390,7 +390,7 @@ class AccessTab(QWidget):
                 os_item.setForeground(QColor(20, 20, 20))
             self.host_table.setItem(r, 1, os_item)
             combo = QComboBox()
-            combo.setMaximumWidth(150)
+            combo.setMaximumWidth(120)
             combo.addItem("— none —")
             combo.addItems(self.state.store.names())
             self.host_table.setCellWidget(r, 2, combo)     # dropdown in the Profile column
