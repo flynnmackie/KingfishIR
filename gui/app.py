@@ -291,7 +291,16 @@ class AccessTab(QWidget):
         self.host_table = QTableWidget(0, 5)
         self.host_table.setHorizontalHeaderLabels(
             ["Host", "OS", "Profile", "WinRM", "SSH"])
-        self.host_table.horizontalHeader().setStretchLastSection(True)
+        header = self.host_table.horizontalHeader()
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(0, QHeaderView.Fixed)     # Host
+        self.host_table.setColumnWidth(0, 140)
+        header.setSectionResizeMode(1, QHeaderView.Fixed)     # OS
+        self.host_table.setColumnWidth(1, 110)
+        header.setSectionResizeMode(2, QHeaderView.Fixed)     # Profile
+        self.host_table.setColumnWidth(2, 180)
+        header.setSectionResizeMode(3, QHeaderView.Stretch)   # WinRM
+        header.setSectionResizeMode(4, QHeaderView.Stretch)   # SSH
         left.addWidget(self.host_table)
 
         btn_row = QHBoxLayout()
@@ -381,6 +390,7 @@ class AccessTab(QWidget):
                 os_item.setForeground(QColor(20, 20, 20))
             self.host_table.setItem(r, 1, os_item)
             combo = QComboBox()
+            combo.setMaximumWidth(150)
             combo.addItem("— none —")
             combo.addItems(self.state.store.names())
             self.host_table.setCellWidget(r, 2, combo)     # dropdown in the Profile column
@@ -529,6 +539,7 @@ class CollectTab(QWidget):
                       h.ssh_state is AccessState.AUTHENTICATED)
             if not authed:
                 continue
+            self.host_table.setColumnWidth(2, 160)
             from PySide6.QtCore import Qt
             item = QListWidgetItem(f"{h.ip}  ({h.actual_os.value})")
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
