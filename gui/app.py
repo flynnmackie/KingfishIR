@@ -774,15 +774,31 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(tabs)
 
 class LogTab(QWidget):
-
     def __init__(self):
         super().__init__()
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel("Activity log (chain of custody)"))
-        self.table = QTableWidget(0, 6)
+        self.table = QTableWidget(0, 8)
+        self.table.setObjectName("logTable")
         self.table.setHorizontalHeaderLabels(
-            ["Time", "Host", "Action", "Artefact", "Size", "Match"])
-        self.table.horizontalHeader().setStretchLastSection(True)
+            ["Time", "Host", "Action", "Artefact", "Size", "Match", "Outcome", "Detail"])
+        header = self.table.horizontalHeader()
+        header.setStretchLastSection(True)                     # Detail takes the slack
+        header.setSectionResizeMode(0, QHeaderView.Fixed)      # Time
+        self.table.setColumnWidth(0, 85)
+        header.setSectionResizeMode(1, QHeaderView.Fixed)      # Host
+        self.table.setColumnWidth(1, 115)
+        header.setSectionResizeMode(2, QHeaderView.Fixed)      # Action
+        self.table.setColumnWidth(2, 90)
+        header.setSectionResizeMode(3, QHeaderView.Stretch)    # Artefact
+        header.setSectionResizeMode(4, QHeaderView.Fixed)      # Size
+        self.table.setColumnWidth(4, 80)
+        header.setSectionResizeMode(5, QHeaderView.Fixed)      # Match
+        self.table.setColumnWidth(5, 55)
+        header.setSectionResizeMode(6, QHeaderView.Fixed)      # Outcome
+        self.table.setColumnWidth(6, 90)
+        # column 7 (Detail) = stretch last section
+        self.table.verticalHeader().setDefaultSectionSize(20)
         layout.addWidget(self.table)
 
     def clear(self):
@@ -791,16 +807,16 @@ class LogTab(QWidget):
     def add_row(self, rec):
         r = self.table.rowCount()
         self.table.insertRow(r)
-        cells = [rec.timestamp.split("T")[-1], rec.host, rec.action,
-                 rec.artefact, rec.size_bytes, rec.match]
+        cells = [rec.timestamp.split("T")[-1].split("+")[0], rec.host, rec.action,
+                 rec.artefact, rec.size_bytes, rec.match, rec.outcome, rec.detail]
         for c, v in enumerate(cells):
             self.table.setItem(r, c, QTableWidgetItem(str(v)))
         if rec.match == "Y":
             self.table.item(r, 5).setBackground(QColor(200, 230, 201))
-            self.table.item(r, 5).setForeground(QColor(20, 20, 20))   # after line 515
-        elif rec.outcome == "error":
-            self.table.item(r, 2).setBackground(QColor(255, 205, 210))
-            self.table.item(r, 2).setForeground(QColor(20, 20, 20))   # after line 517
+            self.table.item(r, 5).setForeground(QColor(20, 20, 20))
+        if rec.outcome == "error":
+            self.table.item(r, 6).setBackground(QColor(255, 205, 210))
+            self.table.item(r, 6).setForeground(QColor(20, 20, 20))
 
 def run():
     app = QApplication([])
@@ -847,6 +863,7 @@ def run():
         QListWidget#artefactList::item {
             padding: 1px 4px;
         }
+        QTableWidget#logTable { font-size: 11px; }
     """)
     window = MainWindow()
     window.show()
