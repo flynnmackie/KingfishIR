@@ -508,7 +508,7 @@ class CollectWorker(QObject):
     def __init__(self, hosts, selected_ids, store, audit, run_folder):
         super().__init__()
         self.hosts = hosts
-        self.selected_ids = selected_ids     # set of artefact ids the user ticked
+        self.selected_ids = selected_ids
         self.store = store
         self.audit = audit
         self.run_folder = run_folder
@@ -517,6 +517,7 @@ class CollectWorker(QObject):
         # live-feed the audit log into the Log tab
         self.audit.subscribe(self.log_row.emit)
         for host in self.hosts:
+            transport = None
             try:
                 profile = self.store.get(host.profile_name)
                 if host.actual_os is OSFamily.UNIX:
@@ -524,17 +525,32 @@ class CollectWorker(QObject):
                 else:
                     transport = WinRMTransport(host.ip, profile)
 
-                # platform-filter: only this host's-OS artefacts that were ticked
+                # session start
+                self.audit.log(host.ip, "session opened", outcome="ok",
+                               detail=f"connected to {host.hostname or host.ip}")
+
                 catalogue = catalogue_for(host.actual_os)
                 chosen = [a for a in catalogue if a.id in self.selected_ids]
 
                 results = collect_from_host(host, chosen, transport, self.audit,
                                             out_root="collected", run_folder=self.run_folder)
-                transport.close()
                 ok = sum(1 for r in results if r.collected)
                 self.host_done.emit(host.ip, ok, len(results))
             except Exception as exc:
                 self.error.emit(f"{host.ip}: {exc}")
+            finally:
+                # session end - always logged, even if collection failed
+                if transport is not None:
+                    try:
+                        transport.close()
+                    except Exception:
+                        pass
+                    self.audit.log(host.ip, "session closed", outcome="ok",
+                                   detail=f"disconnected from {host.hostname or host.ip}")
+
+        # overall completion marker with the output location
+        self.audit.log("-", "collection complete", outcome="ok",
+                       detail=f"output saved to collected/{self.run_folder}/")
         self.finished.emit(self.run_folder)
 
 class CollectTab(QWidget):
