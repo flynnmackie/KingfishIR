@@ -634,7 +634,7 @@ class CollectTab(QWidget):
         self.artefact_list.setSelectionMode(QListWidget.NoSelection)
         self.artefact_list.itemChanged.connect(self.on_item_changed)
         self.artefact_list.setObjectName("artefactList")
-        right.addWidget(self.artefact_list, 1)
+        right.addWidget(self.artefact_list, 5)
 
         from PySide6.QtWidgets import QCheckBox
         from PySide6.QtWidgets import QFrame
@@ -653,7 +653,6 @@ class CollectTab(QWidget):
         self.collect_btn.clicked.connect(self.on_collect)
         right.addWidget(self.collect_btn)
         self.status = QLabel("")
-        right.addWidget(self.status)
         layout.addLayout(right, 1)
 
         self.switch_os(OSFamily.WINDOWS)     # initial view
