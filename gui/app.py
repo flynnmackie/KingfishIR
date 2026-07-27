@@ -39,8 +39,9 @@ class AppState:
     """Shared data the tabs pass between each other (discovery -> access -> collect)."""
     def __init__(self):
         self.hosts = []
-        self.store = CredentialStore()      # shared credential profiles
-
+        self.store = CredentialStore()
+        from core.config import load_config
+        self.config = load_config()          # {"uac_path": ..., "eztools_path": ...}
 
 class ScanWorker(QObject):
     host_found = Signal(object)
@@ -124,6 +125,9 @@ class DiscoveryTab(QWidget):
         row.addWidget(self.clear_btn)
 
         layout.addLayout(row)
+        layout.addWidget(_help_label(
+            "Scan the network to find live hosts and guess their operating system. "
+            "Enter a single IP, a range (10.10.10.1-20), or a CIDR block (10.10.10.0/24), then click Scan."))
 
         self.table = QTableWidget(0, 7)
         self.table.setHorizontalHeaderLabels(["Host", "Status", "Last Scanned", "OS Guess", "Confidence", "Basis", ""])
@@ -276,6 +280,12 @@ _KIND_CHOICES = {
     "Linux (SSH)": CredKind.SSH_PASSWORD,
 }
 
+def _help_label(text: str) -> QLabel:
+    lbl = QLabel(text)
+    lbl.setWordWrap(True)
+    lbl.setStyleSheet("color: #9a9a9a; font-style: italic; font-size: 12px; padding: 1px 0 2px 0;")
+    return lbl
+
 class AccessTab(QWidget):
     def __init__(self, state: AppState):
         super().__init__()
@@ -287,6 +297,9 @@ class AccessTab(QWidget):
         # ---- Left: host table with a profile dropdown per row ----
         left = QVBoxLayout()
         left.addWidget(QLabel("Discovered hosts"))
+        left.addWidget(_help_label(
+            "Verify which hosts you can reach with valid credentials. "
+            "Load hosts from discovery, create a profile on the right and assign it to each host, then click Verify access."))
         self.host_table = QTableWidget(0, 5)
         self.host_table.setHorizontalHeaderLabels(
             ["Host", "OS", "Profile", "WinRM", "SSH"])
@@ -574,6 +587,9 @@ class CollectTab(QWidget):
         # ---- Left: host checklist ----
         left = QVBoxLayout()
         left.addWidget(QLabel("Collect from (authenticated hosts)"))
+        left.addWidget(_help_label(
+            "Choose which authenticated hosts and which artefacts to collect. "
+            "Load authenticated hosts, tick hosts to collect from and desired artefacts, then click Start collection."))
         self.host_list = QListWidget()
         left.addWidget(self.host_list)
         self.load_btn = QPushButton("Load authenticated hosts")
@@ -780,12 +796,85 @@ class CollectTab(QWidget):
         self.collect_btn.setText("Start collection")
         self.status.setText(f"Done. Output under collected/{run_folder}/")
 
+class SettingsDialog(QWidget):
+    """Standalone settings window for external-tool paths."""
+    def __init__(self, state):
+        super().__init__()
+        self.state = state
+        self.setWindowTitle("Settings — External Tools")
+        self.resize(560, 200)
+        layout = QVBoxLayout(self)
+
+        layout.addWidget(QLabel("External tool locations"))
+        layout.addWidget(_help_label(
+            "Set where UAC and EZ Tools live on this machine. "
+            "Paths are saved to config.json (never credentials)."))
+
+        # UAC path row
+        uac_row = QHBoxLayout()
+        uac_row.addWidget(QLabel("UAC Folder:"))
+        self.uac_in = QLineEdit(self.state.config.get("uac_path", ""))
+        uac_row.addWidget(self.uac_in)
+        uac_browse = QPushButton("Browse")
+        uac_browse.clicked.connect(lambda: self._browse(self.uac_in, folder=True))
+        uac_row.addWidget(uac_browse)
+        layout.addLayout(uac_row)
+
+        # EZ Tools path row
+        ez_row = QHBoxLayout()
+        ez_row.addWidget(QLabel("EZ Tools folder:"))
+        self.ez_in = QLineEdit(self.state.config.get("eztools_path", ""))
+        ez_row.addWidget(self.ez_in)
+        ez_browse = QPushButton("Browse")
+        ez_browse.clicked.connect(lambda: self._browse(self.ez_in, folder=True))
+        ez_row.addWidget(ez_browse)
+        layout.addLayout(ez_row)
+
+        # Save / Cancel
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        save = QPushButton("Save")
+        save.clicked.connect(self._save)
+        cancel = QPushButton("Cancel")
+        cancel.clicked.connect(self.close)
+        btn_row.addWidget(save)
+        btn_row.addWidget(cancel)
+        layout.addLayout(btn_row)
+
+    def _browse(self, field, folder=False):
+        from PySide6.QtWidgets import QFileDialog
+        if folder:
+            path = QFileDialog.getExistingDirectory(self, "Select folder")
+        else:
+            path, _ = QFileDialog.getOpenFileName(self, "Select file")
+        if path:
+            field.setText(path)
+
+    def _save(self):
+        from core.config import save_config
+        self.state.config["uac_path"] = self.uac_in.text().strip()
+        self.state.config["eztools_path"] = self.ez_in.text().strip()
+        save_config(self.state.config)
+        self.close()
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Remote Triage Collector")
         self.resize(1200, 500)
         self.state = AppState()
+
+        container = QWidget()
+        outer = QVBoxLayout(container)
+
+        # top bar with a gear/settings button on the right
+        top_bar = QHBoxLayout()
+        top_bar.addStretch()
+        self.settings_btn = QPushButton("⚙ Settings")
+        self.settings_btn.setMaximumWidth(120)
+        self.settings_btn.clicked.connect(self.open_settings)
+        top_bar.addWidget(self.settings_btn)
+        outer.addLayout(top_bar)
 
         tabs = QTabWidget()
         tabs.addTab(DiscoveryTab(self.state), "1 · Discovery")
@@ -795,13 +884,22 @@ class MainWindow(QMainWindow):
         collect = CollectTab(self.state, access.audit, log_tab)
         tabs.addTab(collect, "3 · Collect")
         tabs.addTab(log_tab, "Log")
-        self.setCentralWidget(tabs)
+        outer.addWidget(tabs)
+
+        self.setCentralWidget(container)
+
+    def open_settings(self):
+        self.settings_win = SettingsDialog(self.state)
+        self.settings_win.show()
 
 class LogTab(QWidget):
     def __init__(self):
         super().__init__()
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel("Activity log (chain of custody)"))
+        layout.addWidget(_help_label(
+            "A timestamped record of every action taken during collection, with hash verification. "
+            "Hover a Detail cell to view the full path or the artefact's hashes."))
         self.table = QTableWidget(0, 8)
         self.table.setObjectName("logTable")
         self.table.setHorizontalHeaderLabels(
