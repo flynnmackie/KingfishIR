@@ -41,9 +41,15 @@ class AuditLog:
         self._ensure_header()
 
     def _ensure_header(self) -> None:
-        if not self.csv_path.exists():
-            with open(self.csv_path, "w", newline="") as f:
-                csv.DictWriter(f, fieldnames=self.FIELDS).writeheader()
+            # Write a header if the file is missing OR exists but is empty/headerless.
+            needs_header = True
+            if self.csv_path.exists() and self.csv_path.stat().st_size > 0:
+                with open(self.csv_path, "r", newline="") as f:
+                    first = f.readline().strip()
+                needs_header = (first != ",".join(self.FIELDS))
+            if needs_header:
+                with open(self.csv_path, "w", newline="") as f:
+                    csv.DictWriter(f, fieldnames=self.FIELDS).writeheader()
 
     def subscribe(self, callback: Callable[[AuditRecord], None]) -> None:
         """Register an observer (e.g. the GUI log panel)."""
