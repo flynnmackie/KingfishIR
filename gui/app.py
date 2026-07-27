@@ -520,7 +520,7 @@ class CollectWorker(QObject):
     error = Signal(str)
 
     def __init__(self, hosts, selected_ids, store, audit, run_folder,
-                 run_uac=False, uac_folder=""):
+                 run_uac=False, uac_folder="", run_kape=False, kape_folder=""):
         super().__init__()
         self.hosts = hosts
         self.selected_ids = selected_ids

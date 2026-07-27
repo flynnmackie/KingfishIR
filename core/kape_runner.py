@@ -32,7 +32,7 @@ def run_kape(host, transport, kape_local_folder, audit, out_root, run_folder):
         transport.make_dir(stage)
         transport.put_file(local_tmp, remote_zip)
         audit.log(ip, "kape push", artefact="KAPE", outcome="ok",
-                  detail=f"pushed archive to {remote_zip}")
+                  detail=f"pushing archive to {remote_zip}")
         transport.run_command(
             f"powershell -Command \"Expand-Archive -Path '{remote_zip}' "
             f"-DestinationPath '{remote_kape_dir}' -Force\"")
@@ -55,8 +55,11 @@ def run_kape(host, transport, kape_local_folder, audit, out_root, run_folder):
             f'"{kape_exe}" --tsource C: --target !SANS_Triage '
             f'--tdest "{tdest}" --module !EZParser --mdest "{mdest}" --gui'
         )
+        # Supress 'Press any key to exit'
         out = transport.run_command(
-            f'powershell -Command "& {kape_cmd}"').decode(errors="replace")
+            f'cmd /c "echo. | \"{kape_exe}\" --tsource C: --target !SANS_Triage '
+            f'--tdest \"{tdest}\" --module !EZParser --mdest \"{mdest}\""'
+        ).decode(errors="replace")
         tail = out.strip().splitlines()[-3:] if out.strip() else ["(no output)"]
         audit.log(ip, "kape output", artefact="KAPE", outcome="ok",
                   detail=" | ".join(tail))
