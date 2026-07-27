@@ -529,6 +529,8 @@ class CollectWorker(QObject):
         self.run_folder = run_folder
         self.run_uac = run_uac
         self.uac_folder = uac_folder
+        self.run_kape = run_kape
+        self.kape_folder = kape_folder
 
     def run(self):
         # live-feed the audit log into the Log tab
@@ -562,11 +564,17 @@ class CollectWorker(QObject):
                                                 out_root="collected", run_folder=self.run_folder)
                     ok = sum(1 for r in results if r.collected)
 
-                    # optional UAC launch on Unix hosts
                     if self.run_uac and host.actual_os is OSFamily.UNIX and self.uac_folder:
                         from core.uac_runner import run_uac
+                        self.uac_status.emit("running")
                         run_uac(host, transport, self.uac_folder, self.audit,
                                 out_root="collected", run_folder=self.run_folder)
+                        self.uac_status.emit("done")
+
+                    if self.run_kape and host.actual_os is OSFamily.WINDOWS and self.kape_folder:
+                        from core.kape_runner import run_kape
+                        run_kape(host, transport, self.kape_folder, self.audit,
+                                 out_root="collected", run_folder=self.run_folder)
 
                     self.host_done.emit(host.ip, ok, len(results))
                     self.host_done.emit(host.ip, ok, len(results))
@@ -649,6 +657,13 @@ class CollectTab(QWidget):
         self.run_uac_cb.setToolTip("Requires the UAC folder path set in Settings (⚙)")
         right.addWidget(self.run_uac_cb)
 
+        self.run_kape_cb = QCheckBox("Run KAPE on Windows hosts")
+        self.run_kape_cb.setStyleSheet(
+            "QCheckBox { padding: 8px 4px; font-weight: bold; }"
+            "QCheckBox::indicator { width: 15px; height: 15px; }")
+        self.run_kape_cb.setToolTip("Requires the KAPE folder path set in Settings (⚙)")
+        right.addWidget(self.run_kape_cb)
+
         self.collect_btn = QPushButton("Start collection")
         self.collect_btn.clicked.connect(self.on_collect)
         right.addWidget(self.collect_btn)
@@ -677,6 +692,7 @@ class CollectTab(QWidget):
         self.unix_btn.setStyleSheet(unix_style)
         self.populate_artefacts()
         self.run_uac_cb.setVisible(os_family is OSFamily.UNIX)
+        self.run_kape_cb.setVisible(os_family is OSFamily.WINDOWS)
 
     def populate_artefacts(self):
         self.artefact_list.blockSignals(True)
@@ -798,9 +814,10 @@ class CollectTab(QWidget):
         hosts = [h for h in self.state.hosts if h.ip in chosen_ips]
         selected_ids = set(self.checked_artefacts)      # from the persistent set
 
-        if not hosts or (not selected_ids and not self.run_uac_cb.isChecked()):
+        if not hosts or (not selected_ids and not self.run_uac_cb.isChecked()
+                         and not self.run_kape_cb.isChecked()):
             QMessageBox.warning(self, "Nothing selected",
-                                "Tick at least one host and one artefact.")
+                                "Tick at least one host, and either an artefact, UAC, or KAPE.")
             return
 
         self.collect_btn.setEnabled(False)
@@ -817,7 +834,9 @@ class CollectTab(QWidget):
         self.c_worker = CollectWorker(hosts, selected_ids, self.state.store,
                                       self.audit, run_folder,
                                       run_uac=self.run_uac_cb.isChecked(),
-                                      uac_folder=self.state.config.get("uac_path", ""))
+                                      uac_folder=self.state.config.get("uac_path", ""),
+                                      run_kape=self.run_kape_cb.isChecked(),
+                                      kape_folder=self.state.config.get("kape_path", ""))
         self.c_worker.moveToThread(self.c_thread)
         self.c_thread.started.connect(self.c_worker.run)
         self.c_worker.log_row.connect(self.log_tab.add_row)
@@ -881,6 +900,16 @@ class SettingsDialog(QWidget):
         ez_row.addWidget(ez_browse)
         layout.addLayout(ez_row)
 
+        # KAPE path row
+        kape_row = QHBoxLayout()
+        kape_row.addWidget(QLabel("KAPE folder:"))
+        self.kape_in = QLineEdit(self.state.config.get("kape_path", ""))
+        kape_row.addWidget(self.kape_in)
+        kape_browse = QPushButton("Browse")
+        kape_browse.clicked.connect(lambda: self._browse(self.kape_in, folder=True))
+        kape_row.addWidget(kape_browse)
+        layout.addLayout(kape_row)
+
         # Save / Cancel
         btn_row = QHBoxLayout()
         btn_row.addStretch()
@@ -905,6 +934,7 @@ class SettingsDialog(QWidget):
         from core.config import save_config
         self.state.config["uac_path"] = self.uac_in.text().strip()
         self.state.config["eztools_path"] = self.ez_in.text().strip()
+        self.state.config["kape_path"] = self.kape_in.text().strip()
         save_config(self.state.config)
         self.close()
 
