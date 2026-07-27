@@ -646,10 +646,6 @@ class CollectTab(QWidget):
 
         from PySide6.QtWidgets import QCheckBox
         from PySide6.QtWidgets import QFrame
-        divider = QFrame()
-        divider.setFrameShape(QFrame.HLine)
-        divider.setStyleSheet("color: #3c3c3c;")
-        right.addWidget(divider)
         self.run_uac_cb = QCheckBox("Run UAC on Unix hosts (uses Settings path)")
         self.run_uac_cb.setStyleSheet(
             "QCheckBox { padding: 4px 2px; font-weight: bold; }"
@@ -659,17 +655,17 @@ class CollectTab(QWidget):
 
         self.run_kape_cb = QCheckBox("Run KAPE on Windows hosts")
         self.run_kape_cb.setStyleSheet(
-            "QCheckBox { padding: 8px 4px; font-weight: bold; }"
+            "QCheckBox { padding: 4px 2px; font-weight: bold; }"
             "QCheckBox::indicator { width: 15px; height: 15px; }")
         self.run_kape_cb.setToolTip("Requires the KAPE folder path set in Settings (⚙)")
         right.addWidget(self.run_kape_cb)
 
-        self.collect_btn = QPushButton("Start collection")
-        self.collect_btn.clicked.connect(self.on_collect)
-        right.addWidget(self.collect_btn)
         self.status = QLabel("")
         self.status.setStyleSheet("color: #7fd0ff; font-style: italic; padding: 4px 0;")
         right.addWidget(self.status)
+        self.collect_btn = QPushButton("Start collection")
+        self.collect_btn.clicked.connect(self.on_collect)
+        right.addWidget(self.collect_btn)
         layout.addLayout(right, 1)
 
         self.switch_os(OSFamily.WINDOWS)     # initial view
@@ -935,7 +931,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Remote Triage Collector")
-        self.resize(1200, 500)
+        self.resize(1250, 700)
         self.state = AppState()
 
         container = QWidget()

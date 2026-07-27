@@ -67,12 +67,25 @@ WINDOWS_CATALOGUE: list[Artefact] = [
              volatility=15, is_command=False, spec=rf"{_WIN_STAGE}\rtc_pwsh.evtx",
              prepare=rf'wevtutil epl "Microsoft-Windows-PowerShell/Operational" {_WIN_STAGE}\rtc_pwsh.evtx /ow:true'),
 
-    # Prefetch - a directory; zip on target, fetch, flatten.
-    Artefact("win_prefetch", "Prefetch", "Prefetch", OSFamily.WINDOWS,
+    # Evidence of Execution.
+    Artefact("win_prefetch", "Prefetch", "EvidenceOfExecution", OSFamily.WINDOWS,
              volatility=15, is_command=False, is_archive=True,
              spec=rf"{_WIN_STAGE}\rtc_prefetch.zip",
              prepare=(rf"robocopy C:\Windows\Prefetch {_WIN_STAGE}\pf *.pf /B /R:0 /W:0 /NP /NFL /NDL /NJH /NJS > $null 2>&1; "
                       rf"Compress-Archive -Path {_WIN_STAGE}\pf\* -DestinationPath {_WIN_STAGE}\rtc_prefetch.zip -Force")),
+    Artefact("win_amcache", "Amcache", "EvidenceOfExecution", OSFamily.WINDOWS,
+             volatility=15, is_command=False,
+             spec=rf"{_WIN_STAGE}\rtc_amcache.hve",
+             prepare=(rf"robocopy C:\Windows\AppCompat\Programs {_WIN_STAGE}\amc Amcache.hve "
+                      rf"/B /R:0 /W:0 /NP /NFL /NDL /NJH /NJS > $null 2>&1; "
+                      rf"Move-Item {_WIN_STAGE}\amc\Amcache.hve {_WIN_STAGE}\rtc_amcache.hve -Force")),
+
+    Artefact("win_srum", "SRUM database", "EvidenceOfExecution", OSFamily.WINDOWS,
+             volatility=15, is_command=False,
+             spec=rf"{_WIN_STAGE}\rtc_srudb.dat",
+             prepare=(rf"robocopy C:\Windows\System32\sru {_WIN_STAGE}\sru SRUDB.dat "
+                      rf"/B /R:0 /W:0 /NP /NFL /NDL /NJH /NJS > $null 2>&1; "
+                      rf"Move-Item {_WIN_STAGE}\sru\SRUDB.dat {_WIN_STAGE}\rtc_srudb.dat -Force")),
 ]
 # --- Unix-like -------------------------------------------------------------
 _NIX_STAGE = "{stage}"
