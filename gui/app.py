@@ -877,12 +877,14 @@ class SettingsDialog(QWidget):
 
         layout.addWidget(QLabel("External tool locations"))
         layout.addWidget(_help_label(
-            "Set where UAC and EZ Tools live on this machine. "
+            "Set where UAC and KAPE live on this machine. "
             "Paths are saved to config.json (never credentials)."))
 
         # UAC path row
         uac_row = QHBoxLayout()
-        uac_row.addWidget(QLabel("UAC Folder:"))
+        uac_label = QLabel("UAC Folder:")
+        uac_label.setFixedWidth(170)
+        uac_row.addWidget(uac_label)
         self.uac_in = QLineEdit(self.state.config.get("uac_path", ""))
         uac_row.addWidget(self.uac_in)
         uac_browse = QPushButton("Browse")
@@ -890,19 +892,11 @@ class SettingsDialog(QWidget):
         uac_row.addWidget(uac_browse)
         layout.addLayout(uac_row)
 
-        # EZ Tools path row
-        ez_row = QHBoxLayout()
-        ez_row.addWidget(QLabel("EZ Tools folder:"))
-        self.ez_in = QLineEdit(self.state.config.get("eztools_path", ""))
-        ez_row.addWidget(self.ez_in)
-        ez_browse = QPushButton("Browse")
-        ez_browse.clicked.connect(lambda: self._browse(self.ez_in, folder=True))
-        ez_row.addWidget(ez_browse)
-        layout.addLayout(ez_row)
-
         # KAPE path row
         kape_row = QHBoxLayout()
-        kape_row.addWidget(QLabel("KAPE folder:"))
+        kape_label = QLabel("KAPE folder:")
+        kape_label.setFixedWidth(170)
+        kape_row.addWidget(kape_label)
         self.kape_in = QLineEdit(self.state.config.get("kape_path", ""))
         kape_row.addWidget(self.kape_in)
         kape_browse = QPushButton("Browse")
@@ -933,7 +927,6 @@ class SettingsDialog(QWidget):
     def _save(self):
         from core.config import save_config
         self.state.config["uac_path"] = self.uac_in.text().strip()
-        self.state.config["eztools_path"] = self.ez_in.text().strip()
         self.state.config["kape_path"] = self.kape_in.text().strip()
         save_config(self.state.config)
         self.close()
