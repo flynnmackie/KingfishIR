@@ -93,6 +93,15 @@ class SSHTransport(Transport):
         finally:
             sftp.close()
 
+    def put_file(self, local_path: str, remote_path: str) -> None:
+        """Upload a local file to the target over SFTP (the cross-machine copy)."""
+        client = self._connect()
+        sftp = client.open_sftp()
+        try:
+            sftp.put(local_path, remote_path)
+        finally:
+            sftp.close()
+
     def remote_hash(self, remote_path: str) -> str | None:
         out = self.run_command(f"sha256sum {remote_path}").decode(errors="replace")
         parts = out.split()          # "<hash>  <path>"
