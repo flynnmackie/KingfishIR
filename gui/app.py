@@ -642,7 +642,7 @@ class CollectTab(QWidget):
         divider.setFrameShape(QFrame.HLine)
         divider.setStyleSheet("color: #3c3c3c;")
         right.addWidget(divider)
-        self.run_uac_cb = QCheckBox("Also run UAC on Unix hosts (uses Settings path)")
+        self.run_uac_cb = QCheckBox("Run UAC on Unix hosts (uses Settings path)")
         self.run_uac_cb.setStyleSheet(
             "QCheckBox { padding: 4px 2px; font-weight: bold; }"
             "QCheckBox::indicator { width: 15px; height: 15px; }")

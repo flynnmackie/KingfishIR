@@ -41,22 +41,27 @@ def run_uac(host, transport, uac_local_folder, audit, out_root, run_folder):
         # 3. extract on the target
         transport.run_command(f"tar -xzf {remote_tar} -C {stage}")
 
-        # 4. run UAC with sudo (ir_triage profile, output into the stage dir)
+        # 4. run UAC with sudo, capturing its output
         transport.run_command(f"chmod +x {remote_uac_dir}/uac")
         audit.log(ip, "uac run", artefact="UAC", outcome="ok",
                   detail="running: ./uac -p ir_triage")
-        transport.run_command(
-            f"cd {remote_uac_dir} && ./uac -p ir_triage {stage}", use_sudo=True)
+        run_cmd = f"cd {remote_uac_dir} && bash ./uac -p ir_triage {stage}; echo EXIT_CODE=$?"
+        uac_out = transport.run_command(run_cmd, use_sudo=True).decode(errors="replace")
+        audit.log(ip, "uac output", artefact="UAC", outcome="ok",
+                  detail=uac_out.strip().replace(chr(10), " | ")[-200:])
 
-        # 5. find UAC's output archive (uac-*.tar.gz) in the stage dir
+        # 5. find UAC's output archive anywhere in the stage dir
         listing = transport.run_command(
-            f"ls -1 {stage}/uac-*.tar.gz 2>/dev/null").decode(errors="replace").strip()
-        produced = [line.strip() for line in listing.splitlines() if line.strip()]
+            f"ls -1 {stage}").decode(errors="replace").strip()
+        audit.log(ip, "uac listing", artefact="UAC", outcome="ok",
+                  detail=f"stage contains: {listing.replace(chr(10), ', ')}")
+        archives = transport.run_command(
+            f"find {stage} -name 'uac-*.tar.gz' 2>/dev/null").decode(errors="replace").strip()
+        produced = [l.strip() for l in archives.splitlines() if l.strip()]
         if not produced:
             audit.log(ip, "uac collect", artefact="UAC", outcome="error",
                       detail="no UAC output archive found")
             return False
-
         remote_output = produced[0]
         data = transport.fetch_file(remote_output)
 
