@@ -138,30 +138,66 @@ WINDOWS_CATALOGUE: list[Artefact] = [
 _NIX_STAGE = "{stage}"
 
 UNIX_CATALOGUE: list[Artefact] = [
-    # Volatile.
-    Artefact("nix_proc", "Running processes", "Volatile", OSFamily.UNIX,
-             volatility=95, spec="ps aux"),
-    Artefact("nix_netconn", "Network connections", "Volatile", OSFamily.UNIX,
-             volatility=95, spec="ss -tunap"),
-    Artefact("nix_who", "Logged-on users", "Volatile", OSFamily.UNIX,
-             volatility=90, spec="who -a"),
-    Artefact("nix_cron_list", "User crontab", "Volatile", OSFamily.UNIX,
-             volatility=80, spec="crontab -l 2>/dev/null; echo '--- /etc/crontab ---'; cat /etc/crontab 2>/dev/null"),
+    # --- Live State (volatile) ---
+    Artefact("nix_lsof", "Open files", "Live State", OSFamily.UNIX,
+             volatility=90, spec="lsof -n 2>/dev/null | head -n 5000"),
+    Artefact("nix_lsmod", "Loaded kernel modules", "Live State", OSFamily.UNIX,
+             volatility=85, spec="lsmod"),
+    Artefact("nix_mounts", "Mounted filesystems", "Live State", OSFamily.UNIX,
+             volatility=85, spec="mount; echo '--- /proc/mounts ---'; cat /proc/mounts"),
+    Artefact("nix_env", "Process environment (init)", "Live State", OSFamily.UNIX,
+             volatility=80, spec="cat /proc/1/environ 2>/dev/null | tr '\\0' '\\n'"),
 
-    # Logs - root-owned; zip via sudo into /tmp, chmod so UnixUser can fetch it.
-    Artefact("nix_varlog", "System logs (/var/log)", "SystemLogs", OSFamily.UNIX,
-             volatility=15, is_command=False, is_archive=True, requires_sudo=True,
-             spec=f"{_NIX_STAGE}/rtc_varlog.zip",
-             prepare=f"sh -c 'cd /var/log && zip -r {_NIX_STAGE}/rtc_varlog.zip . >/dev/null 2>&1; chmod 644 {_NIX_STAGE}/rtc_varlog.zip'"),
+    # --- Network state (volatile) ---
+    Artefact("nix_listen", "Listening sockets", "Network", OSFamily.UNIX,
+             volatility=90, spec="ss -tulpn 2>/dev/null"),
+    Artefact("nix_routes", "Routing table", "Network", OSFamily.UNIX,
+             volatility=85, spec="ip route show 2>/dev/null; echo '--- rules ---'; ip rule show 2>/dev/null"),
+    Artefact("nix_arp", "ARP / neighbour cache", "Network", OSFamily.UNIX,
+             volatility=90, spec="ip neigh show 2>/dev/null"),
+    Artefact("nix_ifconfig", "Network interfaces", "Network", OSFamily.UNIX,
+             volatility=85, spec="ip addr show 2>/dev/null"),
+    Artefact("nix_iptables", "Firewall rules", "Network", OSFamily.UNIX,
+             volatility=70, requires_sudo=True,
+             spec="iptables-save 2>/dev/null; echo '--- nft ---'; nft list ruleset 2>/dev/null"),
+    Artefact("nix_netcfg", "Network config files", "Network", OSFamily.UNIX,
+             volatility=40, spec="cat /etc/hosts /etc/resolv.conf /etc/hostname 2>/dev/null"),
 
-    # Root shell history - copy out via sudo, then fetch the readable copy.
-    Artefact("nix_bash_history", "Root shell history", "History", OSFamily.UNIX,
-             volatility=15, is_command=False, requires_sudo=True,
-             spec=f"{_NIX_STAGE}/rtc_root_bash_history",
-             prepare=f"sh -c 'cp /root/.bash_history {_NIX_STAGE}/rtc_root_bash_history; chmod 644 {_NIX_STAGE}/rtc_root_bash_history'"),
- 
-    Artefact("nix_lastlog", "Last login per user", "Volatile", OSFamily.UNIX,
-             volatility=85, spec="lastlog"),
+    # --- System Info ---
+    Artefact("nix_uname", "Kernel / OS version", "System Info", OSFamily.UNIX,
+             volatility=60, spec="uname -a; echo '--- release ---'; cat /etc/os-release 2>/dev/null"),
+    Artefact("nix_uptime", "Uptime / load", "System Info", OSFamily.UNIX,
+             volatility=70, spec="uptime; echo '--- boot ---'; who -b 2>/dev/null"),
+    Artefact("nix_packages", "Installed packages", "System Info", OSFamily.UNIX,
+             volatility=40,
+             spec="(dpkg -l 2>/dev/null || rpm -qa 2>/dev/null || apk info 2>/dev/null)"),
+
+    # --- Accounts ---
+    Artefact("nix_passwd", "User accounts (passwd/group)", "Accounts", OSFamily.UNIX,
+             volatility=30,
+             spec="echo '=== passwd ==='; cat /etc/passwd; echo '=== group ==='; cat /etc/group"),
+    Artefact("nix_shadow", "Password hashes (shadow)", "Accounts", OSFamily.UNIX,
+             volatility=30, is_command=False, requires_sudo=True,
+             spec=f"{_NIX_STAGE}/rtc_shadow",
+             prepare=f"sh -c 'cp /etc/shadow {_NIX_STAGE}/rtc_shadow; chmod 644 {_NIX_STAGE}/rtc_shadow'"),
+    Artefact("nix_sudoers", "Sudoers configuration", "Accounts", OSFamily.UNIX,
+             volatility=30, is_command=False, requires_sudo=True,
+             spec=f"{_NIX_STAGE}/rtc_sudoers",
+             prepare=f"sh -c 'cp /etc/sudoers {_NIX_STAGE}/rtc_sudoers 2>/dev/null; cat /etc/sudoers.d/* >> {_NIX_STAGE}/rtc_sudoers 2>/dev/null; chmod 644 {_NIX_STAGE}/rtc_sudoers'"),
+
+    # --- Persistence ---
+    Artefact("nix_cron_system", "System cron jobs", "Persistence", OSFamily.UNIX,
+             volatility=40, requires_sudo=True,
+             spec=("sh -c 'echo === /etc/crontab ===; cat /etc/crontab 2>/dev/null; "
+                   "echo === cron.d ===; cat /etc/cron.d/* 2>/dev/null; "
+                   "echo === user spools ===; cat /var/spool/cron/crontabs/* 2>/dev/null'")),
+    Artefact("nix_systemd_units", "Systemd services", "Persistence", OSFamily.UNIX,
+             volatility=40,
+             spec="systemctl list-unit-files --type=service --no-pager 2>/dev/null"),
+    Artefact("nix_authkeys", "SSH authorized_keys", "Persistence", OSFamily.UNIX,
+             volatility=30, requires_sudo=True,
+             spec=("sh -c 'for f in /root/.ssh/authorized_keys /home/*/.ssh/authorized_keys; "
+                   "do echo \"=== $f ===\"; cat \"$f\" 2>/dev/null; done'")),
 ]
 
 def catalogue_for(os_family: OSFamily) -> list[Artefact]:

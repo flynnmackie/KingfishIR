@@ -643,14 +643,18 @@ class CollectTab(QWidget):
         self.run_uac_cb = QCheckBox("Run UAC on Unix hosts (uses Settings path)")
         self.run_uac_cb.setStyleSheet(
             "QCheckBox { padding: 4px 2px; font-weight: bold; }"
-            "QCheckBox::indicator { width: 15px; height: 15px; }")
+            "QCheckBox::indicator { width: 10px; height: 10px; border: 1px solid #6a6a6a; "
+            "border-radius: 3px; background-color: #4a4a4a; }"
+            "QCheckBox::indicator:checked { background-color: #1b5e20; border: 1px solid #43a047; }")
         self.run_uac_cb.setToolTip("Requires the UAC folder path set in Settings (⚙)")
         right.addWidget(self.run_uac_cb)
 
         self.run_kape_cb = QCheckBox("Run KAPE on Windows hosts")
         self.run_kape_cb.setStyleSheet(
             "QCheckBox { padding: 4px 2px; font-weight: bold; }"
-            "QCheckBox::indicator { width: 15px; height: 15px; }")
+            "QCheckBox::indicator { width: 10px; height: 10px; border: 1px solid #6a6a6a; "
+            "border-radius: 3px; background-color: #4a4a4a; }"
+            "QCheckBox::indicator:checked { background-color: #1b5e20; border: 1px solid #43a047; }")
         self.run_kape_cb.setToolTip("Requires the KAPE folder path set in Settings (⚙)")
         right.addWidget(self.run_kape_cb)
 
