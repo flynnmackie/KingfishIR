@@ -653,6 +653,8 @@ class CollectTab(QWidget):
         self.collect_btn.clicked.connect(self.on_collect)
         right.addWidget(self.collect_btn)
         self.status = QLabel("")
+        self.status.setStyleSheet("color: #7fd0ff; font-style: italic; padding: 4px 0;")
+        right.addWidget(self.status)
         layout.addLayout(right, 1)
 
         self.switch_os(OSFamily.WINDOWS)     # initial view
@@ -830,18 +832,20 @@ class CollectTab(QWidget):
     def _tick(self):
         self._elapsed += 1
         m, s = divmod(self._elapsed, 60)
-        self.collect_btn.setText(f"Collecting… {m}:{s:02d}")
+        text = f"Collecting… {m}:{s:02d} elapsed"
+        self.status.setText(text)
+        self.log_tab.timer_label.setText(text)      # mirror onto the Log tab
 
     def on_host_done(self, ip, ok, total):
         self.status.setText(f"{ip}: {ok}/{total} artefacts collected")
 
     def on_done(self, run_folder):
-        self.collect_btn.setEnabled(True)
-        self.collect_btn.setText("Start collection")
-        self.status.setText(f"Done. Output under collected/{run_folder}/")
         if hasattr(self, "_timer"):
             self._timer.stop()
         self.collect_btn.setText("Start collection")
+        self.collect_btn.setEnabled(True)
+        self.status.setText(f"Done. Output under collected/{run_folder}/")
+        self.log_tab.timer_label.setText("")
 
 class SettingsDialog(QWidget):
     """Standalone settings window for external-tool paths."""
@@ -968,7 +972,13 @@ class LogTab(QWidget):
     def __init__(self):
         super().__init__()
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("Activity log (chain of custody)"))
+        head_row = QHBoxLayout()
+        head_row.addWidget(QLabel("Activity log (chain of custody)"))
+        head_row.addStretch()
+        self.timer_label = QLabel("")
+        self.timer_label.setStyleSheet("color: #7fd0ff; font-style: italic;")
+        head_row.addWidget(self.timer_label)
+        layout.addLayout(head_row)
         layout.addWidget(_help_label(
             "A timestamped record of every action taken during collection, with hash verification. "
             "Hover a Detail cell to view the full path or the artefact's hashes."))
