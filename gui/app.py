@@ -803,6 +803,11 @@ class CollectTab(QWidget):
 
         self.collect_btn.setEnabled(False)
         self.collect_btn.setText("Collecting…")
+        from PySide6.QtCore import QTimer
+        self._elapsed = 0
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._tick)
+        self._timer.start(1000)
 
         run_folder = run_timestamp()
         self.c_thread = QThread()
@@ -900,15 +905,6 @@ class MainWindow(QMainWindow):
         container = QWidget()
         outer = QVBoxLayout(container)
 
-        # top bar with a gear/settings button on the right
-        top_bar = QHBoxLayout()
-        top_bar.addStretch()
-        self.settings_btn = QPushButton("⚙ Settings")
-        self.settings_btn.setMaximumWidth(120)
-        self.settings_btn.clicked.connect(self.open_settings)
-        top_bar.addWidget(self.settings_btn)
-        outer.addLayout(top_bar)
-
         tabs = QTabWidget()
         tabs.addTab(DiscoveryTab(self.state), "1 · Discovery")
         access = AccessTab(self.state)
@@ -917,9 +913,37 @@ class MainWindow(QMainWindow):
         collect = CollectTab(self.state, access.audit, log_tab)
         tabs.addTab(collect, "3 · Collect")
         tabs.addTab(log_tab, "Log")
-        outer.addWidget(tabs)
 
+        # About + Settings buttons flush in the tab bar's top-right corner
+        corner = QWidget()
+        corner_row = QHBoxLayout(corner)
+        corner_row.setContentsMargins(0, 0, 4, 0)
+        corner_row.setSpacing(4)
+        self.about_btn = QPushButton("About")
+        self.about_btn.setMaximumWidth(80)
+        self.about_btn.clicked.connect(self.open_about)
+        self.settings_btn = QPushButton("⚙ Settings")
+        self.settings_btn.setMaximumWidth(110)
+        self.settings_btn.clicked.connect(self.open_settings)
+        corner_row.addWidget(self.about_btn)
+        corner_row.addWidget(self.settings_btn)
+        tabs.setCornerWidget(corner, Qt.TopRightCorner)
+
+        outer.addWidget(tabs)
         self.setCentralWidget(container)
+
+    def open_settings(self):
+        self.settings_win = SettingsDialog(self.state)
+        self.settings_win.show()
+
+    def open_about(self):
+        QMessageBox.about(
+            self, "About Remote Triage Collector",
+            "Remote Triage Collector\n\n"
+            "A cross-platform, agentless digital forensic triage tool.\n"
+            "Discovers hosts, verifies access, and collects forensic artefacts "
+            "from Windows (WinRM) and Unix (SSH) targets over native protocols.\n\n"
+            "MSc dissertation project.")
 
     def open_settings(self):
         self.settings_win = SettingsDialog(self.state)
@@ -1029,7 +1053,7 @@ def run():
         QTabBar::tab {
             background: #2b2b2b; color: #bbb; padding: 8px 16px;
         }
-        QTabBar::tab:selected { background: #1e1e1e; color: white; }
+        QTabBar::tab:selected { background: #0e639c; color: white; }
 
         QListWidget::item {
             padding: 6px 4px;

@@ -45,7 +45,8 @@ def run_uac(host, transport, uac_local_folder, audit, out_root, run_folder):
         transport.run_command(f"chmod +x {remote_uac_dir}/uac")
         audit.log(ip, "uac run", artefact="UAC", outcome="ok",
                   detail="running: ./uac -p ir_triage")
-        run_cmd = f"cd {remote_uac_dir} && bash ./uac -p ir_triage {stage}; echo EXIT_CODE=$?"
+        run_cmd = (f"bash -c 'cd {remote_uac_dir} && bash ./uac -p ir_triage {stage}; "
+                   f"echo EXIT_CODE=$?'")
         uac_out = transport.run_command(run_cmd, use_sudo=True).decode(errors="replace")
         audit.log(ip, "uac output", artefact="UAC", outcome="ok",
                   detail=uac_out.strip().replace(chr(10), " | ")[-200:])
