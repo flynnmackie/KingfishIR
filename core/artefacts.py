@@ -23,21 +23,61 @@ _WIN_STAGE = "{stage}"      # filled in per-run by collection with the working d
 
 # --- Windows ---------------------------------------------------------------
 WINDOWS_CATALOGUE: list[Artefact] = [
-    # Volatile - live state, collected first.
-    Artefact("win_proc", "Running processes", "Volatile", OSFamily.WINDOWS,
+    # Live State - volatile, collected first (volatility drives order).
+    Artefact("win_proc", "Running processes", "Live State", OSFamily.WINDOWS,
              volatility=95,
              spec="Get-Process | Select-Object * | ConvertTo-Csv -NoTypeInformation"),
-    Artefact("win_netconn", "Network connections", "Volatile", OSFamily.WINDOWS,
+    Artefact("win_netconn", "Network connections", "Live State", OSFamily.WINDOWS,
              volatility=95,
              spec="Get-NetTCPConnection | ConvertTo-Csv -NoTypeInformation"),
-    Artefact("win_sessions", "Logged-on users", "Volatile", OSFamily.WINDOWS,
+    Artefact("win_sessions", "Logged-on users", "Live State", OSFamily.WINDOWS,
              volatility=90, spec="query user"),
-    Artefact("win_services", "Services", "Volatile", OSFamily.WINDOWS,
+    Artefact("win_services", "Services", "Live State", OSFamily.WINDOWS,
              volatility=85,
              spec="Get-Service | Select-Object Name,DisplayName,Status,StartType | ConvertTo-Csv -NoTypeInformation"),
-    Artefact("win_tasks", "Scheduled tasks", "Volatile", OSFamily.WINDOWS,
+    Artefact("win_tasks", "Scheduled tasks", "Live State", OSFamily.WINDOWS,
              volatility=80,
              spec="Get-ScheduledTask | Select-Object TaskName,TaskPath,State | ConvertTo-Csv -NoTypeInformation"),
+
+    # Network state (volatile).
+    Artefact("win_arp", "ARP cache", "Network", OSFamily.WINDOWS,
+             volatility=90, spec="arp -a"),
+    Artefact("win_dns", "DNS cache", "Network", OSFamily.WINDOWS,
+             volatility=90, spec="Get-DnsClientCache | ConvertTo-Csv -NoTypeInformation"),
+    Artefact("win_netcfg", "Network configuration", "Network", OSFamily.WINDOWS,
+             volatility=85, spec="ipconfig /all"),
+    Artefact("win_routes", "Routing table", "Network", OSFamily.WINDOWS,
+             volatility=85, spec="Get-NetRoute | ConvertTo-Csv -NoTypeInformation"),
+    Artefact("win_smb_sessions", "SMB sessions", "Network", OSFamily.WINDOWS,
+             volatility=90, spec="Get-SmbSession | ConvertTo-Csv -NoTypeInformation 2>$null"),
+
+    # System context.
+    Artefact("win_sysinfo", "System information", "System Info", OSFamily.WINDOWS,
+             volatility=70, spec="systeminfo"),
+    Artefact("win_localusers", "Local users", "System Info", OSFamily.WINDOWS,
+             volatility=70,
+             spec="Get-LocalUser | Select-Object Name,Enabled,LastLogon,SID | ConvertTo-Csv -NoTypeInformation"),
+    Artefact("win_localadmins", "Local administrators", "System Info", OSFamily.WINDOWS,
+             volatility=70,
+             spec="Get-LocalGroupMember -Group Administrators | ConvertTo-Csv -NoTypeInformation 2>$null"),
+    Artefact("win_hotfixes", "Installed patches", "System Info", OSFamily.WINDOWS,
+             volatility=60,
+             spec="Get-HotFix | Select-Object HotFixID,InstalledOn,Description | ConvertTo-Csv -NoTypeInformation"),
+
+    # Persistence.
+    Artefact("win_autoruns_reg", "Run keys (autostart)", "Persistence", OSFamily.WINDOWS,
+             volatility=40,
+             spec=(r"reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Run; "
+                   r"reg query HKCU\Software\Microsoft\Windows\CurrentVersion\Run")),
+    Artefact("win_startup_folder", "Startup folder", "Persistence", OSFamily.WINDOWS,
+             volatility=40,
+             spec=r'dir "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup" /b /s 2>nul'),
+    Artefact("win_tasks_xml", "Scheduled task definitions", "Persistence", OSFamily.WINDOWS,
+             volatility=40, is_command=False, is_archive=True,
+             spec=rf"{_WIN_STAGE}\rtc_tasks.zip",
+             prepare=(rf"robocopy C:\Windows\System32\Tasks {_WIN_STAGE}\tasks /E "
+                      rf"/R:0 /W:0 /NP /NFL /NDL /NJH /NJS > $null 2>&1; "
+                      rf"Compress-Archive -Path {_WIN_STAGE}\tasks\* -DestinationPath {_WIN_STAGE}\rtc_tasks.zip -Force")),
 
     # Registry hives - locked; export an unlocked copy with reg save.
     Artefact("win_reg_system", "SYSTEM hive", "Hives", OSFamily.WINDOWS,
@@ -79,13 +119,20 @@ WINDOWS_CATALOGUE: list[Artefact] = [
              prepare=(rf"robocopy C:\Windows\AppCompat\Programs {_WIN_STAGE}\amc Amcache.hve "
                       rf"/B /R:0 /W:0 /NP /NFL /NDL /NJH /NJS > $null 2>&1; "
                       rf"Move-Item {_WIN_STAGE}\amc\Amcache.hve {_WIN_STAGE}\rtc_amcache.hve -Force")),
-
     Artefact("win_srum", "SRUM database", "EvidenceOfExecution", OSFamily.WINDOWS,
              volatility=15, is_command=False,
              spec=rf"{_WIN_STAGE}\rtc_srudb.dat",
              prepare=(rf"robocopy C:\Windows\System32\sru {_WIN_STAGE}\sru SRUDB.dat "
                       rf"/B /R:0 /W:0 /NP /NFL /NDL /NJH /NJS > $null 2>&1; "
                       rf"Move-Item {_WIN_STAGE}\sru\SRUDB.dat {_WIN_STAGE}\rtc_srudb.dat -Force")),
+
+    # Filesystem metadata.
+    Artefact("win_mft", "$MFT (master file table)", "Filesystem", OSFamily.WINDOWS,
+             volatility=15, is_command=False,
+             spec=rf"{_WIN_STAGE}\rtc_mft",
+             prepare=(rf"robocopy C:\ {_WIN_STAGE}\mft \$MFT "
+                      rf"/B /R:0 /W:0 /NP /NFL /NDL /NJH /NJS > $null 2>&1; "
+                      rf"Move-Item {_WIN_STAGE}\mft\`$MFT {_WIN_STAGE}\rtc_mft -Force")),
 ]
 # --- Unix-like -------------------------------------------------------------
 _NIX_STAGE = "{stage}"

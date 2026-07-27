@@ -557,12 +557,6 @@ class CollectWorker(QObject):
                     results = collect_from_host(host, chosen, transport, self.audit,
                                                 out_root="collected", run_folder=self.run_folder)
                     ok = sum(1 for r in results if r.collected)
-                    results = collect_from_host(host, chosen, transport, self.audit,
-                                                out_root="collected", run_folder=self.run_folder)
-                    ok = sum(1 for r in results if r.collected)
-                    results = collect_from_host(host, chosen, transport, self.audit,
-                                                out_root="collected", run_folder=self.run_folder)
-                    ok = sum(1 for r in results if r.collected)
 
                     if self.run_uac and host.actual_os is OSFamily.UNIX and self.uac_folder:
                         from core.uac_runner import run_uac
