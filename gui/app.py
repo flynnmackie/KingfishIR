@@ -808,6 +808,7 @@ class CollectTab(QWidget):
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
         self._timer.start(1000)
+        
 
         run_folder = run_timestamp()
         self.c_thread = QThread()
@@ -826,6 +827,11 @@ class CollectTab(QWidget):
         self.c_thread.finished.connect(self.c_thread.deleteLater)
         self.c_thread.start()
 
+    def _tick(self):
+        self._elapsed += 1
+        m, s = divmod(self._elapsed, 60)
+        self.collect_btn.setText(f"Collecting… {m}:{s:02d}")
+
     def on_host_done(self, ip, ok, total):
         self.status.setText(f"{ip}: {ok}/{total} artefacts collected")
 
@@ -833,6 +839,9 @@ class CollectTab(QWidget):
         self.collect_btn.setEnabled(True)
         self.collect_btn.setText("Start collection")
         self.status.setText(f"Done. Output under collected/{run_folder}/")
+        if hasattr(self, "_timer"):
+            self._timer.stop()
+        self.collect_btn.setText("Start collection")
 
 class SettingsDialog(QWidget):
     """Standalone settings window for external-tool paths."""
@@ -920,7 +929,7 @@ class MainWindow(QMainWindow):
         corner_row.setContentsMargins(0, 0, 4, 0)
         corner_row.setSpacing(4)
         self.about_btn = QPushButton("About")
-        self.about_btn.setMaximumWidth(80)
+        self.about_btn.setMaximumWidth(200)
         self.about_btn.clicked.connect(self.open_about)
         self.settings_btn = QPushButton("⚙ Settings")
         self.settings_btn.setMaximumWidth(110)
@@ -941,9 +950,15 @@ class MainWindow(QMainWindow):
             self, "About Remote Triage Collector",
             "Remote Triage Collector\n\n"
             "A cross-platform, agentless digital forensic triage tool.\n"
-            "Discovers hosts, verifies access, and collects forensic artefacts "
-            "from Windows (WinRM) and Unix (SSH) targets over native protocols.\n\n"
-            "MSc dissertation project.")
+            "Discovers hosts, verifies access, and collects forensic artefacts\n"
+            "from Windows (WinRM) and Unix (SSH) targets over native protocols.\n"
+            "\n\n"
+            "General Use:\n"
+            "1."
+            "\n\n"
+            "KAPE/UAC Specific\n"
+            "1."
+            )
 
     def open_settings(self):
         self.settings_win = SettingsDialog(self.state)
