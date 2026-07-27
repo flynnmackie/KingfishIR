@@ -51,26 +51,33 @@ def run_kape(host, transport, kape_local_folder, audit, out_root, run_folder):
         # 4. run KAPE: SANS triage target + EZParser module
         audit.log(ip, "kape run", artefact="KAPE", outcome="ok",
                   detail="running: --target !SANS_Triage --module !EZParser")
-        kape_cmd = (
+        # Write a batch wrapper on the target and run it with input from nul.
+        # This avoids nested-quote problems and stops KAPE hanging on
+        # "Press any key to exit" (nul gives it immediate EOF).
+        bat = rf"{stage}\run_kape.bat"
+        bat_body = (
+            '@echo off\r\n'
             f'"{kape_exe}" --tsource C: --target !SANS_Triage '
-            f'--tdest "{tdest}" --module !EZParser --mdest "{mdest}" --gui'
+            f'--tdest "{tdest}" --module !EZParser --mdest "{mdest}" < nul\r\n'
         )
-        # Supress 'Press any key to exit'
-        out = transport.run_command(
-            f'cmd /c "echo. | \"{kape_exe}\" --tsource C: --target !SANS_Triage '
-            f'--tdest \"{tdest}\" --module !EZParser --mdest \"{mdest}\""'
-        ).decode(errors="replace")
+        transport.run_command(
+            f"powershell -Command \"Set-Content -Path '{bat}' -Value @'\n{bat_body}'@\"")
+        out = transport.run_command(f'cmd /c "{bat}"').decode(errors="replace")
         tail = out.strip().splitlines()[-3:] if out.strip() else ["(no output)"]
         audit.log(ip, "kape output", artefact="KAPE", outcome="ok",
                   detail=" | ".join(tail))
 
-        # 5. zip KAPE's output on the target
+       # 5. zip KAPE's output on the target
         out_zip = rf"{stage}\kape_output.zip"
+        audit.log(ip, "kape archive", artefact="KAPE", outcome="ok",
+                  detail="compressing KAPE output on target (may take several minutes)…")
         transport.run_command(
             f"powershell -Command \"Compress-Archive -Path '{tdest}','{mdest}' "
             f"-DestinationPath '{out_zip}' -Force\"")
 
         # 6. pull it back
+        audit.log(ip, "kape transfer", artefact="KAPE", outcome="ok",
+                  detail="retrieving KAPE output archive (large file, please wait)…")
         data = transport.fetch_file(out_zip)
         dest_dir = Path(out_root) / run_folder / ip / "KAPE"
         dest_dir.mkdir(parents=True, exist_ok=True)
