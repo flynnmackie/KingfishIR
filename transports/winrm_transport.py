@@ -75,6 +75,11 @@ class WinRMTransport(Transport):
         finally:
             os.unlink(tmp.name)
 
+    def put_file(self, local_path: str, remote_path: str) -> None:
+        """Upload a local file to the target over WinRM (pypsrp handles the transfer)."""
+        client = self._connect()
+        client.copy(local_path, remote_path)
+
     def remote_hash(self, remote_path: str) -> str | None:
         client = self._connect()
         ps = f"(Get-FileHash -Algorithm SHA256 '{remote_path}').Hash"
