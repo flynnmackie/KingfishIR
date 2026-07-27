@@ -519,13 +519,16 @@ class CollectWorker(QObject):
     finished = Signal(str)          # run folder
     error = Signal(str)
 
-    def __init__(self, hosts, selected_ids, store, audit, run_folder):
+    def __init__(self, hosts, selected_ids, store, audit, run_folder,
+                 run_uac=False, uac_folder=""):
         super().__init__()
         self.hosts = hosts
         self.selected_ids = selected_ids
         self.store = store
         self.audit = audit
         self.run_folder = run_folder
+        self.run_uac = run_uac
+        self.uac_folder = uac_folder
 
     def run(self):
         # live-feed the audit log into the Log tab
@@ -552,6 +555,21 @@ class CollectWorker(QObject):
                     results = collect_from_host(host, chosen, transport, self.audit,
                                                 out_root="collected", run_folder=self.run_folder)
                     ok = sum(1 for r in results if r.collected)
+                    results = collect_from_host(host, chosen, transport, self.audit,
+                                                out_root="collected", run_folder=self.run_folder)
+                    ok = sum(1 for r in results if r.collected)
+                    results = collect_from_host(host, chosen, transport, self.audit,
+                                                out_root="collected", run_folder=self.run_folder)
+                    ok = sum(1 for r in results if r.collected)
+
+                    # optional UAC launch on Unix hosts
+                    if self.run_uac and host.actual_os is OSFamily.UNIX and self.uac_folder:
+                        from core.uac_runner import run_uac
+                        run_uac(host, transport, self.uac_folder, self.audit,
+                                out_root="collected", run_folder=self.run_folder)
+
+                    self.host_done.emit(host.ip, ok, len(results))
+                    self.host_done.emit(host.ip, ok, len(results))
                     self.host_done.emit(host.ip, ok, len(results))
                 except Exception as exc:
                     self.error.emit(f"{host.ip}: {exc}")
@@ -591,7 +609,7 @@ class CollectTab(QWidget):
             "Choose which authenticated hosts and which artefacts to collect. "
             "Load authenticated hosts, tick hosts to collect from and desired artefacts, then click Start collection."))
         self.host_list = QListWidget()
-        left.addWidget(self.host_list)
+        left.addWidget(self.host_list, 1)
         self.load_btn = QPushButton("Load authenticated hosts")
         self.load_btn.clicked.connect(self.load_hosts)
         left.addWidget(self.load_btn)
@@ -616,7 +634,20 @@ class CollectTab(QWidget):
         self.artefact_list.setSelectionMode(QListWidget.NoSelection)
         self.artefact_list.itemChanged.connect(self.on_item_changed)
         self.artefact_list.setObjectName("artefactList")
-        right.addWidget(self.artefact_list)
+        right.addWidget(self.artefact_list, 1)
+
+        from PySide6.QtWidgets import QCheckBox
+        from PySide6.QtWidgets import QFrame
+        divider = QFrame()
+        divider.setFrameShape(QFrame.HLine)
+        divider.setStyleSheet("color: #3c3c3c;")
+        right.addWidget(divider)
+        self.run_uac_cb = QCheckBox("Also run UAC on Unix hosts (uses Settings path)")
+        self.run_uac_cb.setStyleSheet(
+            "QCheckBox { padding: 4px 2px; font-weight: bold; }"
+            "QCheckBox::indicator { width: 15px; height: 15px; }")
+        self.run_uac_cb.setToolTip("Requires the UAC folder path set in Settings (⚙)")
+        right.addWidget(self.run_uac_cb)
 
         self.collect_btn = QPushButton("Start collection")
         self.collect_btn.clicked.connect(self.on_collect)
@@ -644,6 +675,7 @@ class CollectTab(QWidget):
         self.win_btn.setStyleSheet(win_style)
         self.unix_btn.setStyleSheet(unix_style)
         self.populate_artefacts()
+        self.run_uac_cb.setVisible(os_family is OSFamily.UNIX)
 
     def populate_artefacts(self):
         self.artefact_list.blockSignals(True)
@@ -765,7 +797,7 @@ class CollectTab(QWidget):
         hosts = [h for h in self.state.hosts if h.ip in chosen_ips]
         selected_ids = set(self.checked_artefacts)      # from the persistent set
 
-        if not hosts or not selected_ids:
+        if not hosts or (not selected_ids and not self.run_uac_cb.isChecked()):
             QMessageBox.warning(self, "Nothing selected",
                                 "Tick at least one host and one artefact.")
             return
@@ -776,7 +808,9 @@ class CollectTab(QWidget):
         run_folder = run_timestamp()
         self.c_thread = QThread()
         self.c_worker = CollectWorker(hosts, selected_ids, self.state.store,
-                                      self.audit, run_folder)
+                                      self.audit, run_folder,
+                                      run_uac=self.run_uac_cb.isChecked(),
+                                      uac_folder=self.state.config.get("uac_path", ""))
         self.c_worker.moveToThread(self.c_thread)
         self.c_thread.started.connect(self.c_worker.run)
         self.c_worker.log_row.connect(self.log_tab.add_row)
