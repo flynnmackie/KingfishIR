@@ -21,8 +21,12 @@ from core.collection import collect_from_host, run_timestamp
 from transports.winrm_transport import WinRMTransport
 from transports.ssh_transport import SSHTransport
 
-
-
+#Friendly Labels for CredKind
+_KIND_CHOICES = {
+    "Windows (domain)": CredKind.DOMAIN_KERBEROS,
+    "Windows (standalone)": CredKind.LOCAL_NTLM,
+    "Linux (SSH)": CredKind.SSH_PASSWORD,
+}
 # Colour palette (soft backgrounds so text stays readable).
 _CONF_COLOURS = {
     "high":   QColor(200, 230, 201),   # green
@@ -34,6 +38,11 @@ _OS_COLOURS = {
     OSFamily.UNIX:    QColor(255, 224, 178),   # orange
 }
 
+def _help_label(text: str) -> QLabel:
+    lbl = QLabel(text)
+    lbl.setWordWrap(True)
+    lbl.setStyleSheet("color: #9a9a9a; font-style: italic; font-size: 12px; padding: 1px 0 2px 0;")
+    return lbl
 
 class AppState:
     """Shared data the tabs pass between each other (discovery -> access -> collect)."""
@@ -273,18 +282,6 @@ class DiscoveryTab(QWidget):
                 self.table.removeRow(r)
                 break
         self.status_label.setText(f"Removed {ip}. {len(self.state.hosts)} host(s) in list.")
-# Friendly labels -> the CredKind the model expects.
-_KIND_CHOICES = {
-    "Windows (domain)": CredKind.DOMAIN_KERBEROS,
-    "Windows (standalone)": CredKind.LOCAL_NTLM,
-    "Linux (SSH)": CredKind.SSH_PASSWORD,
-}
-
-def _help_label(text: str) -> QLabel:
-    lbl = QLabel(text)
-    lbl.setWordWrap(True)
-    lbl.setStyleSheet("color: #9a9a9a; font-style: italic; font-size: 12px; padding: 1px 0 2px 0;")
-    return lbl
 
 class AccessTab(QWidget):
     def __init__(self, state: AppState):
@@ -292,6 +289,7 @@ class AccessTab(QWidget):
         self.state = state
         from core.audit import AuditLog
         self.audit = AuditLog("triage_audit.csv")
+        self.launcher_audit = AuditLog("launcher_audit.csv")
         layout = QHBoxLayout(self)
 
         # ---- Left: host table with a profile dropdown per row ----
@@ -679,6 +677,60 @@ class CollectWorker(QObject):
 
         self.finished.emit(self.run_folder)
 
+class LauncherWorker(QObject):
+    log_row = Signal(object)
+    finished = Signal()
+    error = Signal(str)
+
+    def __init__(self, hosts, store, audit, do_sysmon, sysmon_exe, sysmon_config):
+        super().__init__()
+        self.hosts = hosts
+        self.store = store
+        self.audit = audit
+        self.do_sysmon = do_sysmon
+        self.sysmon_exe = sysmon_exe
+        self.sysmon_config = sysmon_config
+
+    def run(self):
+        self.audit.subscribe(self.log_row.emit)
+        try:
+            self.audit.log("-", "launch started", outcome="ok", detail="launcher run begin")
+            for host in self.hosts:
+                transport = None
+                try:
+                    profile = self.store.get(host.profile_name)
+                    if profile is None:
+                        self.audit.log(host.ip, "launch", outcome="error",
+                                       detail="no profile assigned - skipped")
+                        continue
+                    if host.actual_os is OSFamily.UNIX:
+                        transport = SSHTransport(host.ip, profile)
+                    else:
+                        transport = WinRMTransport(host.ip, profile)
+                    self.audit.log(host.ip, "session opened", outcome="ok",
+                                   detail=f"connected to {host.hostname or host.ip}")
+
+                    if self.do_sysmon and host.actual_os is OSFamily.WINDOWS:
+                        from core.launcher_runner import deploy_sysmon
+                        deploy_sysmon(host, transport, self.sysmon_exe,
+                                      self.sysmon_config, self.audit)
+                    elif self.do_sysmon and host.actual_os is OSFamily.UNIX:
+                        self.audit.log(host.ip, "sysmon", outcome="error",
+                                       detail="Sysmon is Windows-only - skipped")
+                except Exception as exc:
+                    self.error.emit(f"{host.ip}: {exc}")
+                finally:
+                    if transport is not None:
+                        try:
+                            transport.close()
+                        except Exception:
+                            pass
+                        self.audit.log(host.ip, "session closed", outcome="ok",
+                                       detail=f"disconnected from {host.hostname or host.ip}")
+            self.audit.log("-", "launch complete", outcome="ok", detail="launcher run end")
+        finally:
+            self.audit.unsubscribe(self.log_row.emit)
+        self.finished.emit()
 
 class CollectTab(QWidget):
     def __init__(self, state: AppState, audit, log_tab):
@@ -1071,8 +1123,44 @@ class LauncherTab(QWidget):
         save_config(self.state.config)
 
     def on_run(self):
-        # functionality next - stub for now
-        self.status.setText("Run wired next step…")
+        chosen_ips = {self.host_list.item(i).data(Qt.UserRole)
+                      for i in range(self.host_list.count())
+                      if self.host_list.item(i).checkState() == Qt.Checked}
+        hosts = [h for h in self.state.hosts if h.ip in chosen_ips]
+
+        if not hosts:
+            QMessageBox.warning(self, "No hosts", "Tick at least one host to launch on.")
+            return
+        if not self.sysmon_cb.isChecked():
+            QMessageBox.warning(self, "Nothing to run", "Tick a launcher (e.g. Sysmon).")
+            return
+        if self.sysmon_cb.isChecked() and not (self.sysmon_exe_in.text().strip()
+                                               and self.sysmon_cfg_in.text().strip()):
+            QMessageBox.warning(self, "Sysmon paths missing",
+                                "Set the Sysmon exe and config paths first.")
+            return
+
+        self.run_btn.setEnabled(False)
+        self.status.setText("Launching…")
+        self.l_thread = QThread()
+        self.l_worker = LauncherWorker(
+            hosts, self.state.store, self.audit,
+            self.sysmon_cb.isChecked(),
+            self.sysmon_exe_in.text().strip(),
+            self.sysmon_cfg_in.text().strip())
+        self.l_worker.moveToThread(self.l_thread)
+        self.l_thread.started.connect(self.l_worker.run)
+        self.l_worker.log_row.connect(self.log_tab.add_row)
+        self.l_worker.finished.connect(self.on_launch_done)
+        self.l_worker.error.connect(lambda m: self.status.setText(f"Error: {m}"))
+        self.l_worker.finished.connect(self.l_worker.deleteLater)
+        self.l_thread.finished.connect(self.l_thread.deleteLater)
+        self.l_worker.finished.connect(self.l_thread.quit)
+        self.l_thread.start()
+
+    def on_launch_done(self):
+        self.status.setText("Launch complete.")
+        self.run_btn.setEnabled(True)
 
     def load_hosts(self):
         self.host_list.clear()
@@ -1189,7 +1277,7 @@ class MainWindow(QMainWindow):
         log_tab = LogTab()
         collect = CollectTab(self.state, access.audit, log_tab)
         tabs.addTab(collect, "3a · Collect")
-        launcher = LauncherTab(self.state, access.audit, log_tab)
+        launcher = LauncherTab(self.state, access.launcher_audit, log_tab)
         tabs.addTab(launcher, "  3b · Launch")
         tabs.addTab(log_tab, "Log")
 
