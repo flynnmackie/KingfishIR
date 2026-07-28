@@ -70,8 +70,10 @@ WINDOWS_CATALOGUE: list[Artefact] = [
              spec=(r"reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Run; "
                    r"reg query HKCU\Software\Microsoft\Windows\CurrentVersion\Run")),
     Artefact("win_startup_folder", "Startup folder", "Persistence", OSFamily.WINDOWS,
-             volatility=40,
-             spec=r'dir "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup" /b /s 2>nul'),
+             volatility=40, output_ext="csv",
+             spec=(r'Get-ChildItem -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup",'
+                   r'"$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup" '
+                   r'-Recurse -ErrorAction SilentlyContinue | Select-Object FullName | ConvertTo-Csv -NoTypeInformation')),
     Artefact("win_tasks_xml", "Scheduled task definitions", "Persistence", OSFamily.WINDOWS,
              volatility=40, is_command=False, is_archive=True,
              spec=rf"{_WIN_STAGE}\rtc_tasks.zip",

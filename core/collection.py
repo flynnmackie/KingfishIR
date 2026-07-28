@@ -99,10 +99,13 @@ def collect_from_host(
                 category_dir.mkdir(parents=True, exist_ok=True)
 
                 if artefact.is_archive:
-                    count = _extract_zip(data, category_dir)
-                    out_path = category_dir
+                    # extract into a named subfolder so multiple archives in one
+                    # category don't mingle their files
+                    archive_dir = category_dir / artefact.id
+                    count = _extract_zip(data, archive_dir)
+                    out_path = archive_dir
                     audit.log(host.ip, "extract", artefact=artefact.name,
-                              outcome="ok", detail=f"{count} files -> {category_dir}")
+                              outcome="ok", detail=f"{count} files -> {archive_dir}")
                 else:
                     out_path = category_dir / out_name
                     out_path.write_bytes(data)
