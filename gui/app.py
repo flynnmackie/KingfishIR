@@ -973,6 +973,81 @@ class CollectTab(QWidget):
         self.status.setText(f"Done. Output under collected/{run_folder}/")
         self.log_tab.timer_label.setText("")
 
+class LauncherTab(QWidget):
+    """Run external tools (presets or custom) against selected hosts.
+
+    Distinct from forensic collection - this is an operational launcher.
+    Output lands under collected/<run>/<ip>/Launched/<name>/.
+    """
+    def __init__(self, state, audit, log_tab):
+        super().__init__()
+        self.state = state
+        self.audit = audit
+        self.log_tab = log_tab
+
+        layout = QHBoxLayout(self)
+
+        # ---- left: authenticated host selection (mirrors Collect) ----
+        left = QVBoxLayout()
+        left.addWidget(QLabel("Launch on (authenticated hosts)"))
+        left.addWidget(_help_label(
+            "Run external tools on the selected hosts. "
+            "This is separate from forensic collection (3a · Collect) — use it to deploy or run tooling."))
+        self.host_list = QListWidget()
+        left.addWidget(self.host_list, 1)
+        self.load_btn = QPushButton("Load authenticated hosts")
+        self.load_btn.clicked.connect(self.load_hosts)
+        left.addWidget(self.load_btn)
+        layout.addLayout(left, 4)
+
+        # ---- right: launcher panel (presets + custom) ----
+        right = QVBoxLayout()
+        right.addWidget(QLabel("Launchers"))
+        right.addWidget(_help_label(
+            "Preset tools have prepackaged commands. Add your own below (exe + command)."))
+
+        # presets section (placeholder for now)
+        right.addWidget(QLabel("Presets"))
+        self.preset_list = QListWidget()
+        self.preset_list.addItem("Velociraptor (deploy client) — coming soon")
+        self.preset_list.addItem("Sysmon (install) — coming soon")
+        right.addWidget(self.preset_list)
+
+        # custom launchers section (placeholder)
+        right.addWidget(QLabel("Custom launchers"))
+        self.custom_list = QListWidget()
+        right.addWidget(self.custom_list, 1)
+        self.add_custom_btn = QPushButton("+ Add custom launcher")
+        right.addWidget(self.add_custom_btn)
+
+        self.run_btn = QPushButton("Run selected launcher")
+        right.addWidget(self.run_btn)
+        self.status = QLabel("")
+        self.status.setStyleSheet("color: #ffd479; font-style: italic; padding: 4px 0;")
+        right.addWidget(self.status)
+
+        layout.addLayout(right, 3)
+
+    def load_hosts(self):
+        self.host_list.clear()
+        for h in self.state.hosts:
+            authed = (h.winrm_state is AccessState.AUTHENTICATED or
+                      h.ssh_state is AccessState.AUTHENTICATED)
+            if not authed:
+                continue
+            label = f"{h.ip} · {h.hostname}" if h.hostname else h.ip
+            item = QListWidgetItem(label)
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(Qt.Unchecked)
+            item.setData(Qt.UserRole, h.ip)
+            os_colour = _OS_COLOURS.get(h.actual_os)
+            if os_colour:
+                item.setForeground(os_colour)
+                font = item.font()
+                font.setBold(True)
+                item.setFont(font)
+            self.host_list.addItem(item)
+
 class SettingsDialog(QWidget):
     """Standalone settings window for external-tool paths."""
     def __init__(self, state):
@@ -1067,8 +1142,20 @@ class MainWindow(QMainWindow):
         tabs.addTab(access, "2 · Access")
         log_tab = LogTab()
         collect = CollectTab(self.state, access.audit, log_tab)
-        tabs.addTab(collect, "3 · Collect")
+        tabs.addTab(collect, "3a · Collect")
+        launcher = LauncherTab(self.state, access.audit, log_tab)
+        tabs.addTab(launcher, "3b · Launch")
         tabs.addTab(log_tab, "Log")
+
+        # visually pair the two "choose one" tabs
+        tab_bar = tabs.tabBar()
+        for idx in (2, 3):
+            tab_bar.setTabTextColor(idx, QColor("#ffd479"))
+
+        # Visually pair the two "choose one" tabs (Collect / Launch)
+        tab_bar = tabs.tabBar()
+        for idx in (2, 3):                       # 3a Collect, 3b Launch
+            tab_bar.setTabTextColor(idx, QColor("#ffd479"))   # warm accent, distinct from the rest
 
         # About + Settings buttons flush in the tab bar's top-right corner
         corner = QWidget()
