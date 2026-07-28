@@ -155,6 +155,18 @@ WINDOWS_CATALOGUE: list[Artefact] = [
                  r"if(Test-Path $r){cp $r (Join-Path $d $_.Name) -Recurse -Force -EA 0} }; "
                  rf"Compress-Archive $d\* {_WIN_STAGE}\rtc_recent.zip -Force -EA 0")),
 
+    Artefact("win_jumplists", "Jump Lists", "EvidenceOfExecution", OSFamily.WINDOWS,
+             volatility=20, is_command=False, is_archive=True,
+             spec=rf"{_WIN_STAGE}\rtc_jumplists.zip",
+             prepare=(
+                 rf"$d='{_WIN_STAGE}\jump'; md $d -Force | Out-Null; "
+                 r"gci C:\Users -Directory | % { "
+                 r"$a=Join-Path $_.FullName 'AppData\Roaming\Microsoft\Windows\Recent\AutomaticDestinations'; "
+                 r"$c=Join-Path $_.FullName 'AppData\Roaming\Microsoft\Windows\Recent\CustomDestinations'; "
+                 r"if(Test-Path $a){cp $a (Join-Path $d ($_.Name+'_Automatic')) -Recurse -Force -EA 0}; "
+                 r"if(Test-Path $c){cp $c (Join-Path $d ($_.Name+'_Custom')) -Recurse -Force -EA 0} }; "
+                 rf"Compress-Archive $d\* {_WIN_STAGE}\rtc_jumplists.zip -Force -EA 0")),
+
     # --- WMI persistence (event subscriptions) ---
     Artefact("win_wmi_persist", "WMI event subscriptions", "Persistence", OSFamily.WINDOWS,
              volatility=40, output_ext="csv",
