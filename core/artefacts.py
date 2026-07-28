@@ -126,9 +126,8 @@ WINDOWS_CATALOGUE: list[Artefact] = [
     Artefact("win_amcache", "Amcache", "EvidenceOfExecution", OSFamily.WINDOWS,
              volatility=15, is_command=False,
              spec=rf"{_WIN_STAGE}\rtc_amcache.hve",
-             prepare=(rf"robocopy C:\Windows\AppCompat\Programs {_WIN_STAGE}\amc Amcache.hve "
-                      rf"/B /R:0 /W:0 /NP /NFL /NDL /NJH /NJS > $null 2>&1; "
-                      rf"Move-Item {_WIN_STAGE}\amc\Amcache.hve {_WIN_STAGE}\rtc_amcache.hve -Force")),
+             prepare=(rf"esentutl /y C:\Windows\AppCompat\Programs\Amcache.hve "
+                      rf"/d {_WIN_STAGE}\rtc_amcache.hve")),
     Artefact("win_srum", "SRUM database", "EvidenceOfExecution", OSFamily.WINDOWS,
              volatility=15, is_command=False,
              spec=rf"{_WIN_STAGE}\rtc_srudb.dat",
