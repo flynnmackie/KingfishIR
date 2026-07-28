@@ -132,32 +132,28 @@ WINDOWS_CATALOGUE: list[Artefact] = [
                       rf"Move-Item {_WIN_STAGE}\sru\SRUDB.dat {_WIN_STAGE}\rtc_srudb.dat -Force")),
 
     # --- Browser history (per-user; high value) ---
-    Artefact("win_browser", "Browser history (Chrome/Edge/Firefox)", "Browser", OSFamily.WINDOWS,
+    Artefact("win_browser", "Browser history (Chrome/Edge)", "Browser", OSFamily.WINDOWS,
              volatility=20, is_command=False, is_archive=True,
              spec=rf"{_WIN_STAGE}\rtc_browser.zip",
              prepare=(
-                 rf"$dst='{_WIN_STAGE}\browser'; New-Item -ItemType Directory -Force -Path $dst | Out-Null; "
-                 r"Get-ChildItem C:\Users -Directory | ForEach-Object { $u=$_.Name; "
-                 r"$paths=@("
-                 r"\"$($_.FullName)\AppData\Local\Google\Chrome\User Data\Default\History\","
-                 r"\"$($_.FullName)\AppData\Local\Microsoft\Edge\User Data\Default\History\"); "
-                 r"foreach($p in $paths){ if(Test-Path $p){ "
-                 r"Copy-Item $p \"$dst\${u}_$([System.IO.Path]::GetFileName((Split-Path $p -Parent)))_History\" -Force -ErrorAction SilentlyContinue } } "
-                 r"$ff=\"$($_.FullName)\AppData\Roaming\Mozilla\Firefox\Profiles\"; "
-                 r"if(Test-Path $ff){ Get-ChildItem $ff -Directory | ForEach-Object { "
-                 r"$pl=\"$($_.FullName)\places.sqlite\"; if(Test-Path $pl){ "
-                 r"Copy-Item $pl \"$dst\${u}_places.sqlite\" -Force -ErrorAction SilentlyContinue } } } }; "
-                 rf"Compress-Archive -Path $dst\* -DestinationPath {_WIN_STAGE}\rtc_browser.zip -Force -ErrorAction SilentlyContinue")),
+                 rf"$d='{_WIN_STAGE}\browser'; md $d -Force | Out-Null; "
+                 r"gci C:\Users -Directory | % { "
+                 r"$c=Join-Path $_.FullName 'AppData\Local\Google\Chrome\User Data\Default\History'; "
+                 r"$e=Join-Path $_.FullName 'AppData\Local\Microsoft\Edge\User Data\Default\History'; "
+                 r"if(Test-Path $c){cp $c (Join-Path $d ($_.Name+'_chrome_History')) -Force -EA 0}; "
+                 r"if(Test-Path $e){cp $e (Join-Path $d ($_.Name+'_edge_History')) -Force -EA 0} }; "
+                 rf"Compress-Archive $d\* {_WIN_STAGE}\rtc_browser.zip -Force -EA 0")),
 
     # --- Recent files / LNK ---
     Artefact("win_recent", "Recent files (LNK)", "EvidenceOfExecution", OSFamily.WINDOWS,
              volatility=20, is_command=False, is_archive=True,
              spec=rf"{_WIN_STAGE}\rtc_recent.zip",
              prepare=(
-                 rf"$dst='{_WIN_STAGE}\recent'; New-Item -ItemType Directory -Force -Path $dst | Out-Null; "
-                 r"Get-ChildItem C:\Users -Directory | ForEach-Object { $r=\"$($_.FullName)\AppData\Roaming\Microsoft\Windows\Recent\"; "
-                 r"if(Test-Path $r){ Copy-Item $r \"$dst\$($_.Name)\" -Recurse -Force -ErrorAction SilentlyContinue } }; "
-                 rf"Compress-Archive -Path $dst\* -DestinationPath {_WIN_STAGE}\rtc_recent.zip -Force -ErrorAction SilentlyContinue")),
+                 rf"$d='{_WIN_STAGE}\recent'; md $d -Force | Out-Null; "
+                 r"gci C:\Users -Directory | % { "
+                 r"$r=Join-Path $_.FullName 'AppData\Roaming\Microsoft\Windows\Recent'; "
+                 r"if(Test-Path $r){cp $r (Join-Path $d $_.Name) -Recurse -Force -EA 0} }; "
+                 rf"Compress-Archive $d\* {_WIN_STAGE}\rtc_recent.zip -Force -EA 0")),
 
     # --- WMI persistence (event subscriptions) ---
     Artefact("win_wmi_persist", "WMI event subscriptions", "Persistence", OSFamily.WINDOWS,
