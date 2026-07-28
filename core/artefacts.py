@@ -131,6 +131,44 @@ WINDOWS_CATALOGUE: list[Artefact] = [
                       rf"/B /R:0 /W:0 /NP /NFL /NDL /NJH /NJS > $null 2>&1; "
                       rf"Move-Item {_WIN_STAGE}\sru\SRUDB.dat {_WIN_STAGE}\rtc_srudb.dat -Force")),
 
+    # --- Browser history (per-user; high value) ---
+    Artefact("win_browser", "Browser history (Chrome/Edge/Firefox)", "Browser", OSFamily.WINDOWS,
+             volatility=20, is_command=False, is_archive=True,
+             spec=rf"{_WIN_STAGE}\rtc_browser.zip",
+             prepare=(
+                 rf"$dst='{_WIN_STAGE}\browser'; New-Item -ItemType Directory -Force -Path $dst | Out-Null; "
+                 r"Get-ChildItem C:\Users -Directory | ForEach-Object { $u=$_.Name; "
+                 r"$paths=@("
+                 r"\"$($_.FullName)\AppData\Local\Google\Chrome\User Data\Default\History\","
+                 r"\"$($_.FullName)\AppData\Local\Microsoft\Edge\User Data\Default\History\"); "
+                 r"foreach($p in $paths){ if(Test-Path $p){ "
+                 r"Copy-Item $p \"$dst\${u}_$([System.IO.Path]::GetFileName((Split-Path $p -Parent)))_History\" -Force -ErrorAction SilentlyContinue } } "
+                 r"$ff=\"$($_.FullName)\AppData\Roaming\Mozilla\Firefox\Profiles\"; "
+                 r"if(Test-Path $ff){ Get-ChildItem $ff -Directory | ForEach-Object { "
+                 r"$pl=\"$($_.FullName)\places.sqlite\"; if(Test-Path $pl){ "
+                 r"Copy-Item $pl \"$dst\${u}_places.sqlite\" -Force -ErrorAction SilentlyContinue } } } }; "
+                 rf"Compress-Archive -Path $dst\* -DestinationPath {_WIN_STAGE}\rtc_browser.zip -Force -ErrorAction SilentlyContinue")),
+
+    # --- Recent files / LNK ---
+    Artefact("win_recent", "Recent files (LNK)", "EvidenceOfExecution", OSFamily.WINDOWS,
+             volatility=20, is_command=False, is_archive=True,
+             spec=rf"{_WIN_STAGE}\rtc_recent.zip",
+             prepare=(
+                 rf"$dst='{_WIN_STAGE}\recent'; New-Item -ItemType Directory -Force -Path $dst | Out-Null; "
+                 r"Get-ChildItem C:\Users -Directory | ForEach-Object { $r=\"$($_.FullName)\AppData\Roaming\Microsoft\Windows\Recent\"; "
+                 r"if(Test-Path $r){ Copy-Item $r \"$dst\$($_.Name)\" -Recurse -Force -ErrorAction SilentlyContinue } }; "
+                 rf"Compress-Archive -Path $dst\* -DestinationPath {_WIN_STAGE}\rtc_recent.zip -Force -ErrorAction SilentlyContinue")),
+
+    # --- WMI persistence (event subscriptions) ---
+    Artefact("win_wmi_persist", "WMI event subscriptions", "Persistence", OSFamily.WINDOWS,
+             volatility=40, output_ext="csv",
+             spec=("Get-WmiObject -Namespace root\\Subscription -Class __EventFilter "
+                   "-ErrorAction SilentlyContinue | Select-Object Name,Query | "
+                   "ConvertTo-Csv -NoTypeInformation; "
+                   "Get-WmiObject -Namespace root\\Subscription -Class CommandLineEventConsumer "
+                   "-ErrorAction SilentlyContinue | Select-Object Name,CommandLineTemplate | "
+                   "ConvertTo-Csv -NoTypeInformation")),
+
 ]
 # --- Unix-like -------------------------------------------------------------
 _NIX_STAGE = "{stage}"
@@ -196,6 +234,40 @@ UNIX_CATALOGUE: list[Artefact] = [
              volatility=30, requires_sudo=True,
              spec=("sh -c 'for f in /root/.ssh/authorized_keys /home/*/.ssh/authorized_keys; "
                    "do echo \"=== $f ===\"; cat \"$f\" 2>/dev/null; done'")),
+
+    # --- Shell history per user (high-value: attacker commands) ---
+    Artefact("nix_user_history", "Shell history (all users)", "Live State", OSFamily.UNIX,
+             volatility=35, requires_sudo=True,
+             spec=("sh -c 'for f in /root/.bash_history /root/.zsh_history "
+                   "/home/*/.bash_history /home/*/.zsh_history; "
+                   "do echo \"=== $f ===\"; cat \"$f\" 2>/dev/null; done'")),
+
+    # --- SSH client artefacts per user (lateral movement) ---
+    Artefact("nix_ssh_client", "SSH known_hosts & config (all users)", "Persistence", OSFamily.UNIX,
+             volatility=30, requires_sudo=True,
+             spec=("sh -c 'for f in /root/.ssh/known_hosts /root/.ssh/config "
+                   "/home/*/.ssh/known_hosts /home/*/.ssh/config; "
+                   "do echo \"=== $f ===\"; cat \"$f\" 2>/dev/null; done'")),
+
+    # --- Authentication / login records ---
+    Artefact("nix_auth_logs", "Auth logs (wtmp/btmp/auth)", "Accounts", OSFamily.UNIX,
+             volatility=35, is_command=False, requires_sudo=True, is_archive=True,
+             spec=f"{_NIX_STAGE}/rtc_authlogs.zip",
+             prepare=(f"sh -c 'mkdir -p {_NIX_STAGE}/auth; "
+                      f"cp /var/log/wtmp /var/log/btmp /var/log/lastlog /var/log/auth.log* "
+                      f"/var/log/secure* {_NIX_STAGE}/auth/ 2>/dev/null; "
+                      f"cd {_NIX_STAGE} && zip -r rtc_authlogs.zip auth >/dev/null 2>&1; "
+                      f"chmod 644 {_NIX_STAGE}/rtc_authlogs.zip'")),
+
+    # --- Recently modified files (triage staple) ---
+    Artefact("nix_recent_files", "Recently modified files (7 days)", "Live State", OSFamily.UNIX,
+             volatility=40, requires_sudo=True,
+             spec=("sh -c 'find /etc /root /home /var /tmp /usr/local -xdev -mtime -7 "
+                   "-type f 2>/dev/null | head -n 5000'")),
+
+    # --- Kernel ring buffer (volatile) ---
+    Artefact("nix_dmesg", "Kernel ring buffer (dmesg)", "Live State", OSFamily.UNIX,
+             volatility=80, requires_sudo=True, spec="dmesg 2>/dev/null | tail -n 2000"),
 ]
 
 def catalogue_for(os_family: OSFamily) -> list[Artefact]:
