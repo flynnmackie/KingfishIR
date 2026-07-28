@@ -8,6 +8,12 @@
       "kind": "DOMAIN_KERBEROS",
       "username": "Administrator",
       "domain": "TEST"
+    },
+    {
+      "name": "Standalone",
+      "kind": "LOCAL_NTLM",
+      "username": "WindowsUser",
+      "domain": ""
     }
   ],
   "winpmem_path": "D:/winpmem_mini_x64_rc2.exe",

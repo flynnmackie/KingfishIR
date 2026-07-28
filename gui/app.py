@@ -682,7 +682,8 @@ class LauncherWorker(QObject):
     finished = Signal()
     error = Signal(str)
 
-    def __init__(self, hosts, store, audit, do_sysmon, sysmon_exe, sysmon_config):
+    def __init__(self, hosts, store, audit, do_sysmon, sysmon_exe, sysmon_config,
+                 do_velo=False, velo_bin_win="", velo_bin_linux="", velo_config=""):
         super().__init__()
         self.hosts = hosts
         self.store = store
@@ -690,11 +691,15 @@ class LauncherWorker(QObject):
         self.do_sysmon = do_sysmon
         self.sysmon_exe = sysmon_exe
         self.sysmon_config = sysmon_config
+        self.do_velo = do_velo
+        self.velo_bin_win = velo_bin_win
+        self.velo_bin_linux = velo_bin_linux
+        self.velo_config = velo_config
 
     def run(self):
         self.audit.subscribe(self.log_row.emit)
         try:
-            self.audit.log("-", "launch started", outcome="ok", detail="launcher run begin")
+            self.audit.log("-", "Launch Started", outcome="ok", detail="launcher run begin")
             for host in self.hosts:
                 transport = None
                 try:
@@ -717,6 +722,17 @@ class LauncherWorker(QObject):
                     elif self.do_sysmon and host.actual_os is OSFamily.UNIX:
                         self.audit.log(host.ip, "sysmon", outcome="error",
                                        detail="Sysmon is Windows-only - skipped")
+
+                    if self.do_velo:
+                        from core.launcher_runner import deploy_velociraptor
+                        velo_bin = (self.velo_bin_win if host.actual_os is OSFamily.WINDOWS
+                                    else self.velo_bin_linux)
+                        if velo_bin:
+                            deploy_velociraptor(host, transport, velo_bin,
+                                                self.velo_config, self.audit)
+                        else:
+                            self.audit.log(host.ip, "velo", outcome="error",
+                                           detail="no Velociraptor binary set for this OS - skipped")
                 except Exception as exc:
                     self.error.emit(f"{host.ip}: {exc}")
                 finally:
@@ -727,7 +743,7 @@ class LauncherWorker(QObject):
                             pass
                         self.audit.log(host.ip, "session closed", outcome="ok",
                                        detail=f"disconnected from {host.hostname or host.ip}")
-            self.audit.log("-", "launch complete", outcome="ok", detail="launcher run end")
+            self.audit.log("-", "Launch Complete", outcome="ok", detail="launcher run end")
         finally:
             self.audit.unsubscribe(self.log_row.emit)
         self.finished.emit()
@@ -1072,8 +1088,10 @@ class LauncherTab(QWidget):
 
         # Sysmon exe row
         sm_exe_row = QHBoxLayout()
-        sm_exe_lbl = QLabel("       Sysmon exe:")
-        sm_exe_lbl.setFixedWidth(90)
+        sm_exe_row = QHBoxLayout()
+        sm_exe_row.setContentsMargins(50, 0, 0, 0)      # indent under the header
+        sm_exe_lbl = QLabel("Sysmon exe:")
+        sm_exe_lbl.setFixedWidth(100)
         sm_exe_row.addWidget(sm_exe_lbl)
         self.sysmon_exe_in = QLineEdit(self.state.config.get("sysmon_exe", ""))
         sm_exe_row.addWidget(self.sysmon_exe_in)
@@ -1084,8 +1102,10 @@ class LauncherTab(QWidget):
 
         # Sysmon config row
         sm_cfg_row = QHBoxLayout()
-        sm_cfg_lbl = QLabel("       Sysmon config:")
-        sm_cfg_lbl.setFixedWidth(90)
+        sm_cfg_row = QHBoxLayout()
+        sm_cfg_row.setContentsMargins(50, 0, 0, 0)
+        sm_cfg_lbl = QLabel("Sysmon config:")
+        sm_cfg_lbl.setFixedWidth(100)
         sm_cfg_row.addWidget(sm_cfg_lbl)
         self.sysmon_cfg_in = QLineEdit(self.state.config.get("sysmon_config", ""))
         sm_cfg_row.addWidget(self.sysmon_cfg_in)
@@ -1097,6 +1117,37 @@ class LauncherTab(QWidget):
         # persist paths when edited
         self.sysmon_exe_in.editingFinished.connect(self._save_launcher_paths)
         self.sysmon_cfg_in.editingFinished.connect(self._save_launcher_paths)
+
+        # ===== Velociraptor preset =====
+        velo_header = QLabel("Velociraptor Install (Windows & Linux)")
+        velo_header.setStyleSheet("font-weight: bold; font-size: 14px; padding: 6px 0 2px 0;")
+        right.addWidget(velo_header)
+        self.velo_cb = QCheckBox("Deploy Velociraptor client on selected hosts")
+        self.velo_cb.setStyleSheet(
+            "QCheckBox { padding: 4px 2px;}"
+            "QCheckBox::indicator { width: 8px; height: 8px; border: 1px solid #6a6a6a; "
+            "border-radius: 3px; background-color: #4a4a4a; }"
+            "QCheckBox::indicator:checked { background-color: #1b5e20; border: 1px solid #43a047; }")
+        right.addWidget(self.velo_cb)
+
+        for key, label, attr in (
+            ("velo_bin_win", "Velo exe (Win):", "velo_bin_win_in"),
+            ("velo_bin_linux", "Velo bin (Linux):", "velo_bin_linux_in"),
+            ("velo_config", "Velo config:", "velo_config_in")):
+            row = QHBoxLayout()
+            row.setContentsMargins(50, 0, 0, 0)
+            lbl = QLabel(label)
+            lbl.setFixedWidth(100)
+            row.addWidget(lbl)
+            field = QLineEdit(self.state.config.get(key, ""))
+            setattr(self, attr, field)
+            row.addWidget(field)
+            browse = QPushButton("Browse")
+            browse.clicked.connect(lambda _, f=field: self._browse_into(f))
+            row.addWidget(browse)
+            right.addLayout(row)
+            field.editingFinished.connect(self._save_launcher_paths)
+
 
         right.addStretch(1)
 
@@ -1120,6 +1171,9 @@ class LauncherTab(QWidget):
         from core.config import save_config
         self.state.config["sysmon_exe"] = self.sysmon_exe_in.text().strip()
         self.state.config["sysmon_config"] = self.sysmon_cfg_in.text().strip()
+        self.state.config["velo_bin_win"] = self.velo_bin_win_in.text().strip()
+        self.state.config["velo_bin_linux"] = self.velo_bin_linux_in.text().strip()
+        self.state.config["velo_config"] = self.velo_config_in.text().strip()
         save_config(self.state.config)
 
     def on_run(self):
@@ -1128,8 +1182,8 @@ class LauncherTab(QWidget):
                       if self.host_list.item(i).checkState() == Qt.Checked}
         hosts = [h for h in self.state.hosts if h.ip in chosen_ips]
 
-        if not hosts:
-            QMessageBox.warning(self, "No hosts", "Tick at least one host to launch on.")
+        if not self.sysmon_cb.isChecked() and not self.velo_cb.isChecked():
+            QMessageBox.warning(self, "Nothing to run", "Tick a launcher (Sysmon or Velociraptor).")
             return
         if not self.sysmon_cb.isChecked():
             QMessageBox.warning(self, "Nothing to run", "Tick a launcher (e.g. Sysmon).")
@@ -1139,6 +1193,10 @@ class LauncherTab(QWidget):
             QMessageBox.warning(self, "Sysmon paths missing",
                                 "Set the Sysmon exe and config paths first.")
             return
+        if self.velo_cb.isChecked() and not self.velo_config_in.text().strip():
+            QMessageBox.warning(self, "Velociraptor config missing",
+                                "Set the Velociraptor client config path first.")
+            return
 
         self.run_btn.setEnabled(False)
         self.status.setText("Launching…")
@@ -1147,7 +1205,11 @@ class LauncherTab(QWidget):
             hosts, self.state.store, self.audit,
             self.sysmon_cb.isChecked(),
             self.sysmon_exe_in.text().strip(),
-            self.sysmon_cfg_in.text().strip())
+            self.sysmon_cfg_in.text().strip(),
+            do_velo=self.velo_cb.isChecked(),
+            velo_bin_win=self.velo_bin_win_in.text().strip(),
+            velo_bin_linux=self.velo_bin_linux_in.text().strip(),
+            velo_config=self.velo_config_in.text().strip())
         self.l_worker.moveToThread(self.l_thread)
         self.l_thread.started.connect(self.l_worker.run)
         self.l_worker.log_row.connect(self.log_tab.add_row)
@@ -1419,7 +1481,8 @@ class LogTab(QWidget):
         # ---- row colour by outcome / action ----
         if rec.action == "session opened":
             bg = QColor(120, 190, 120)       # dark-ish green, start marker
-        elif rec.action in ("Collect Complete", "Collect Started"):
+        elif rec.action in ("Collect Complete", "Collect Started",
+                            "Launch Started", "Launch Complete"):
             bg = QColor(160, 205, 235)       # blue, end-of-run marker
         elif rec.outcome == "error" or rec.match == "N":
             bg = QColor(240, 170, 175)       # red, failure / hash mismatch
