@@ -1142,20 +1142,10 @@ class MainWindow(QMainWindow):
         tabs.addTab(access, "2 · Access")
         log_tab = LogTab()
         collect = CollectTab(self.state, access.audit, log_tab)
-        tabs.addTab(collect, "3a · Collect")
+        tabs.addTab(collect, "⟨  3a · Collect")
         launcher = LauncherTab(self.state, access.audit, log_tab)
-        tabs.addTab(launcher, "3b · Launch")
+        tabs.addTab(launcher, "  3b · Launch  ⟩")
         tabs.addTab(log_tab, "Log")
-
-        # visually pair the two "choose one" tabs
-        tab_bar = tabs.tabBar()
-        for idx in (2, 3):
-            tab_bar.setTabTextColor(idx, QColor("#ffd479"))
-
-        # Visually pair the two "choose one" tabs (Collect / Launch)
-        tab_bar = tabs.tabBar()
-        for idx in (2, 3):                       # 3a Collect, 3b Launch
-            tab_bar.setTabTextColor(idx, QColor("#ffd479"))   # warm accent, distinct from the rest
 
         # About + Settings buttons flush in the tab bar's top-right corner
         corner = QWidget()
@@ -1172,8 +1162,21 @@ class MainWindow(QMainWindow):
         corner_row.addWidget(self.settings_btn)
         tabs.setCornerWidget(corner, Qt.TopRightCorner)
 
+        self.tabs = tabs
+        tabs.currentChanged.connect(self._on_tab_changed)
+
         outer.addWidget(tabs)
         self.setCentralWidget(container)
+
+    def _on_tab_changed(self, idx):
+        bar = self.tabs.tabBar()
+        bar.setTabTextColor(2, QColor("#bbb"))
+        bar.setTabTextColor(3, QColor("#bbb"))
+        if idx == 2:
+            bar.setTabTextColor(3, QColor("#ffd479"))
+        elif idx == 3:
+            bar.setTabTextColor(2, QColor("#ffd479"))
+    
 
     def open_settings(self):
         self.settings_win = SettingsDialog(self.state)
