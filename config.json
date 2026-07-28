@@ -4,7 +4,7 @@
   "kape_path": "D:/KAPE",
   "profiles": [
     {
-      "name": "dmn",
+      "name": "Domain",
       "kind": "DOMAIN_KERBEROS",
       "username": "Administrator",
       "domain": "TEST"

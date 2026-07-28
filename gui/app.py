@@ -324,7 +324,7 @@ class AccessTab(QWidget):
         self.verify_btn.setEnabled(False)
         btn_row.addWidget(self.verify_btn)
         left.addLayout(btn_row)
-        layout.addLayout(left, 5)
+        layout.addLayout(left, 4)
 
         # ---- Right: credential profile creation ----
         right = QVBoxLayout()
@@ -343,7 +343,7 @@ class AccessTab(QWidget):
                   self.user_in, self.pass_in, self.sudo_in):
             right.addWidget(w)
 
-        self.add_profile_btn = QPushButton("Add profile")
+        self.add_profile_btn = QPushButton("Add/Update profile")
         self.add_profile_btn.clicked.connect(self.add_profile)
         right.addWidget(self.add_profile_btn)
 
@@ -433,6 +433,21 @@ class AccessTab(QWidget):
             self.state.store.add(profile)
         self.refresh_profiles()
 
+    def _populate_by_name(self, name):
+        p = self.state.store.get(name)
+        if not p:
+            return
+        self.name_in.setText(p.name)
+        self.user_in.setText(p.username)
+        self.domain_in.setText(p.domain or "")
+        self.pass_in.clear()
+        self.sudo_in.clear()
+        for label, k in _KIND_CHOICES.items():
+            if k is p.kind:
+                self.kind_in.setCurrentText(label)
+                break
+        self.pass_in.setFocus()
+
     def refresh_profiles(self):
         self.profile_list.clear()
         for name in self.state.store.names():
@@ -440,8 +455,23 @@ class AccessTab(QWidget):
             row = QWidget()
             row_lay = QHBoxLayout(row)
             row_lay.setContentsMargins(4, 2, 4, 2)
-            row_lay.addWidget(QLabel(name))
+            name_lbl = QLabel(name)
+            name_lbl.setStyleSheet(
+                "QLabel { background-color: #34506b; color: #e0e0e0; "
+                "padding: 3px 10px; border-radius: 3px; }"
+                "QLabel:hover { background-color: #416288; }")
+            name_lbl.setCursor(Qt.PointingHandCursor)
+            name_lbl.setToolTip("Click to load this profile and set its password")
+            name_lbl.mousePressEvent = lambda e, n=name: self._populate_by_name(n)
+            row_lay.addWidget(name_lbl)
             row_lay.addStretch()
+            p = self.state.store.get(name)
+            has_pw = bool(p and p.secret)
+            status = QLabel("🔒 set" if has_pw else "🔓 no password")
+            status.setStyleSheet(
+                "color: #7bd88f; padding: 2px 6px;" if has_pw
+                else "color: #d88f7b; padding: 2px 6px;")
+            row_lay.addWidget(status)
             del_btn = QPushButton("Delete")
             del_btn.setMaximumWidth(70)
             del_btn.setStyleSheet(
@@ -977,7 +1007,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Remote Triage Collector")
-        self.resize(1250, 700)
+        self.resize(1400, 600)
         self.state = AppState()
 
         container = QWidget()
