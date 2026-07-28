@@ -1170,12 +1170,12 @@ class MainWindow(QMainWindow):
 
     def _on_tab_changed(self, idx):
         bar = self.tabs.tabBar()
-        bar.setTabTextColor(2, QColor("#bbb"))
-        bar.setTabTextColor(3, QColor("#bbb"))
-        if idx == 2:
-            bar.setTabTextColor(3, QColor("#ffd479"))
-        elif idx == 3:
-            bar.setTabTextColor(2, QColor("#ffd479"))
+        # mark which paired tab is "the alternative", then re-polish so QSS applies
+        for i in (2, 3):
+            is_alt = (idx == 2 and i == 3) or (idx == 3 and i == 2)
+            bar.setTabData(i, "alt" if is_alt else "")
+        bar.style().unpolish(bar)
+        bar.style().polish(bar)
     
 
     def open_settings(self):
@@ -1309,7 +1309,7 @@ def run():
             background-color: #333; color: #e0e0e0; padding: 4px; border: none;
         }
         QTabBar::tab {
-            background: #2b2b2b; color: #bbb; padding: 8px 16px;
+            background: #2b2b2b; padding: 8px 16px;
         }
         QTabBar::tab:selected { background: #0e639c; color: white; }
 
