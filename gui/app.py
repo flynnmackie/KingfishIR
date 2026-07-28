@@ -1002,7 +1002,7 @@ class LogTab(QWidget):
         self.table = QTableWidget(0, 8)
         self.table.setObjectName("logTable")
         self.table.setHorizontalHeaderLabels(
-            ["Time", "Host", "Action", "Artefact", "Size", "Hash Match", "Outcome", "Detail"])
+            ["Time (UTC)", "Host", "Action", "Artefact", "Size", "Hash Match", "Outcome", "Detail"])
         header = self.table.horizontalHeader()
         header.setStretchLastSection(True)
         header.setSectionResizeMode(0, QHeaderView.Fixed)

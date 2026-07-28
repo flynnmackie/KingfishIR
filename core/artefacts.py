@@ -88,10 +88,10 @@ WINDOWS_CATALOGUE: list[Artefact] = [
     Artefact("win_reg_software", "SOFTWARE hive", "Hives", OSFamily.WINDOWS,
              volatility=15, is_command=False, spec=rf"{_WIN_STAGE}\rtc_software.hiv",
              prepare=rf"reg save HKLM\SOFTWARE {_WIN_STAGE}\rtc_software.hiv /y"),
-    Artefact("win_reg_sam", "SAM hive", "Hives", OSFamily.WINDOWS,
+    Artefact("win_reg_sam", "SAM hive (Alerts Defender)", "Hives", OSFamily.WINDOWS,
              volatility=15, is_command=False, spec=rf"{_WIN_STAGE}\rtc_sam.hiv",
              prepare=rf"reg save HKLM\SAM {_WIN_STAGE}\rtc_sam.hiv /y"),
-    Artefact("win_reg_security", "SECURITY hive", "Hives", OSFamily.WINDOWS,
+    Artefact("win_reg_security", "SECURITY hive (Alerts Defender)", "Hives", OSFamily.WINDOWS,
              volatility=15, is_command=False, spec=rf"{_WIN_STAGE}\rtc_sechive.hiv",
              prepare=rf"reg save HKLM\SECURITY {_WIN_STAGE}\rtc_sechive.hiv /y"),
 
@@ -123,11 +123,7 @@ WINDOWS_CATALOGUE: list[Artefact] = [
              spec=rf"{_WIN_STAGE}\rtc_prefetch.zip",
              prepare=(rf"robocopy C:\Windows\Prefetch {_WIN_STAGE}\pf *.pf /B /R:0 /W:0 /NP /NFL /NDL /NJH /NJS > $null 2>&1; "
                       rf"Compress-Archive -Path {_WIN_STAGE}\pf\* -DestinationPath {_WIN_STAGE}\rtc_prefetch.zip -Force")),
-    Artefact("win_amcache", "Amcache", "EvidenceOfExecution", OSFamily.WINDOWS,
-             volatility=15, is_command=False,
-             spec=rf"{_WIN_STAGE}\rtc_amcache.hve",
-             prepare=(rf"esentutl /y C:\Windows\AppCompat\Programs\Amcache.hve "
-                      rf"/d {_WIN_STAGE}\rtc_amcache.hve")),
+
     Artefact("win_srum", "SRUM database", "EvidenceOfExecution", OSFamily.WINDOWS,
              volatility=15, is_command=False,
              spec=rf"{_WIN_STAGE}\rtc_srudb.dat",
@@ -135,13 +131,6 @@ WINDOWS_CATALOGUE: list[Artefact] = [
                       rf"/B /R:0 /W:0 /NP /NFL /NDL /NJH /NJS > $null 2>&1; "
                       rf"Move-Item {_WIN_STAGE}\sru\SRUDB.dat {_WIN_STAGE}\rtc_srudb.dat -Force")),
 
-    # Filesystem metadata.
-    Artefact("win_mft", "$MFT (master file table)", "Filesystem", OSFamily.WINDOWS,
-             volatility=15, is_command=False,
-             spec=rf"{_WIN_STAGE}\rtc_mft",
-             prepare=(rf"robocopy C:\ {_WIN_STAGE}\mft \$MFT "
-                      rf"/B /R:0 /W:0 /NP /NFL /NDL /NJH /NJS > $null 2>&1; "
-                      rf"Move-Item {_WIN_STAGE}\mft\`$MFT {_WIN_STAGE}\rtc_mft -Force")),
 ]
 # --- Unix-like -------------------------------------------------------------
 _NIX_STAGE = "{stage}"
