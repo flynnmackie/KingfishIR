@@ -82,7 +82,7 @@ def collect_from_host(
                 if artefact.is_command:
                     data = transport.run_command(artefact.spec)
                     source_hash = None
-                    out_name = f"{artefact.id}.txt"
+                    out_name = f"{artefact.id}.{artefact.output_ext}"
                 else:
                     spec = artefact.spec.replace("{stage}", stage)
                     if artefact.prepare:

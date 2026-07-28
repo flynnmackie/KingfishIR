@@ -74,7 +74,8 @@ class Artefact:
     is_command: bool = True  # True => run command; False => fetch file/path
     prepare: str | None = None   # optional command that produces an unlocked copy at `spec`
     is_archive: bool = False     # if True, fetched file is a zip to unpack locally into the category folder
-    requires_sudo: bool = False  # if True (Unix), run this artefact's prepare/command via sudo -S
+    requires_sudo: bool = False
+    output_ext: str = "txt"  # if True (Unix), run this artefact's prepare/command via sudo -S
 
 @dataclass
 class CollectionResult:
