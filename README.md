@@ -11,13 +11,3 @@ over SSH (paramiko).
 * `gui/`         thin GUI layer (three tabs + log panel)
 * `main.py`      entry point
 
-## Build order
-
-1. `core/discovery.py` (helpers provided) -> test headless against  subnet.
-2. `transports/` -> get one command running on a Windows and a Linux VM.
-3. `core/access.py` -> three-state verification.
-4. `core/collection.py` -> hash + package, volatility-ordered.
-5. `gui/` -> wire tabs to the working core.
-
-
-
