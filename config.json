@@ -10,5 +10,7 @@
       "domain": "TEST"
     }
   ],
-  "winpmem_path": "D:/winpmem_mini_x64_rc2.exe"
+  "winpmem_path": "D:/winpmem_mini_x64_rc2.exe",
+  "sysmon_exe": "D:/Sysmon/Sysmon64.exe",
+  "sysmon_config": "D:/Sysmon/sysmonconfig.xml"
 }

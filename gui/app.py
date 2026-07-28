@@ -5,7 +5,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QMessageBox,
-    QComboBox, QListWidget, QListWidgetItem, QHeaderView
+    QComboBox, QListWidget, QListWidgetItem, QHeaderView, QCheckBox
 )
 from PySide6.QtCore import QThread, Signal, QObject, Qt, QSize
 from PySide6.QtGui import QColor, QIcon
@@ -1000,33 +1000,79 @@ class LauncherTab(QWidget):
         left.addWidget(self.load_btn)
         layout.addLayout(left, 4)
 
-        # ---- right: launcher panel (presets + custom) ----
+        # ---- right: launcher panel ----
         right = QVBoxLayout()
         right.addWidget(QLabel("Launchers"))
         right.addWidget(_help_label(
-            "Preset tools have prepackaged commands. Add your own below (exe + command)."))
+            "Preset tools have prepackaged commands. Set the tool paths below; they persist."))
 
-        # presets section (placeholder for now)
-        right.addWidget(QLabel("Presets"))
-        self.preset_list = QListWidget()
-        self.preset_list.addItem("Velociraptor (deploy client) — coming soon")
-        self.preset_list.addItem("Sysmon (install) — coming soon")
-        right.addWidget(self.preset_list)
+        # ===== Sysmon preset =====
+        sysmon_header = QLabel("Sysmon Install (Windows)")
+        sysmon_header.setStyleSheet("font-weight: bold; font-size: 14px; padding: 6px 0 2px 0;")
+        right.addWidget(sysmon_header)
+        self.sysmon_cb = QCheckBox("Deploy Sysmon on selected Windows hosts")
+        self.sysmon_cb.setStyleSheet(
+            "QCheckBox { padding: 4px 2px; }"
+            "QCheckBox::indicator { width: 8px; height: 8px; border: 1px solid #6a6a6a; "
+            "border-radius: 3px; background-color: #4a4a4a; }"
+            "QCheckBox::indicator:checked { background-color: #1b5e20; border: 1px solid #43a047; }")
+        right.addWidget(self.sysmon_cb)
 
-        # custom launchers section (placeholder)
-        right.addWidget(QLabel("Custom launchers"))
-        self.custom_list = QListWidget()
-        right.addWidget(self.custom_list, 1)
-        self.add_custom_btn = QPushButton("+ Add custom launcher")
-        right.addWidget(self.add_custom_btn)
+        # Sysmon exe row
+        sm_exe_row = QHBoxLayout()
+        sm_exe_lbl = QLabel("       Sysmon exe:")
+        sm_exe_lbl.setFixedWidth(90)
+        sm_exe_row.addWidget(sm_exe_lbl)
+        self.sysmon_exe_in = QLineEdit(self.state.config.get("sysmon_exe", ""))
+        sm_exe_row.addWidget(self.sysmon_exe_in)
+        sm_exe_browse = QPushButton("Browse")
+        sm_exe_browse.clicked.connect(lambda: self._browse_into(self.sysmon_exe_in))
+        sm_exe_row.addWidget(sm_exe_browse)
+        right.addLayout(sm_exe_row)
 
-        self.run_btn = QPushButton("Run selected launcher")
+        # Sysmon config row
+        sm_cfg_row = QHBoxLayout()
+        sm_cfg_lbl = QLabel("       Sysmon config:")
+        sm_cfg_lbl.setFixedWidth(90)
+        sm_cfg_row.addWidget(sm_cfg_lbl)
+        self.sysmon_cfg_in = QLineEdit(self.state.config.get("sysmon_config", ""))
+        sm_cfg_row.addWidget(self.sysmon_cfg_in)
+        sm_cfg_browse = QPushButton("Browse")
+        sm_cfg_browse.clicked.connect(lambda: self._browse_into(self.sysmon_cfg_in))
+        sm_cfg_row.addWidget(sm_cfg_browse)
+        right.addLayout(sm_cfg_row)
+
+        # persist paths when edited
+        self.sysmon_exe_in.editingFinished.connect(self._save_launcher_paths)
+        self.sysmon_cfg_in.editingFinished.connect(self._save_launcher_paths)
+
+        right.addStretch(1)
+
+        self.run_btn = QPushButton("Run selected launcher(s)")
+        self.run_btn.clicked.connect(self.on_run)
         right.addWidget(self.run_btn)
         self.status = QLabel("")
-        self.status.setStyleSheet("color: #ffd479; font-style: italic; padding: 4px 0;")
+        self.status.setStyleSheet("color: #7fd0ff; font-style: italic; padding: 4px 0;")
         right.addWidget(self.status)
 
         layout.addLayout(right, 3)
+
+    def _browse_into(self, field):
+        from PySide6.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(self, "Select file")
+        if path:
+            field.setText(path)
+            self._save_launcher_paths()
+
+    def _save_launcher_paths(self):
+        from core.config import save_config
+        self.state.config["sysmon_exe"] = self.sysmon_exe_in.text().strip()
+        self.state.config["sysmon_config"] = self.sysmon_cfg_in.text().strip()
+        save_config(self.state.config)
+
+    def on_run(self):
+        # functionality next - stub for now
+        self.status.setText("Run wired next step…")
 
     def load_hosts(self):
         self.host_list.clear()
@@ -1142,9 +1188,9 @@ class MainWindow(QMainWindow):
         tabs.addTab(access, "2 · Access")
         log_tab = LogTab()
         collect = CollectTab(self.state, access.audit, log_tab)
-        tabs.addTab(collect, "⟨  3a · Collect")
+        tabs.addTab(collect, "3a · Collect")
         launcher = LauncherTab(self.state, access.audit, log_tab)
-        tabs.addTab(launcher, "  3b · Launch  ⟩")
+        tabs.addTab(launcher, "  3b · Launch")
         tabs.addTab(log_tab, "Log")
 
         # About + Settings buttons flush in the tab bar's top-right corner
@@ -1170,12 +1216,17 @@ class MainWindow(QMainWindow):
 
     def _on_tab_changed(self, idx):
         bar = self.tabs.tabBar()
-        # mark which paired tab is "the alternative", then re-polish so QSS applies
-        for i in (2, 3):
-            is_alt = (idx == 2 and i == 3) or (idx == 3 and i == 2)
-            bar.setTabData(i, "alt" if is_alt else "")
-        bar.style().unpolish(bar)
-        bar.style().polish(bar)
+        # reset labels + colours
+        self.tabs.setTabText(2, "  3a · Collect")
+        self.tabs.setTabText(3, "3b · Launch  ")
+        bar.setTabTextColor(2, QColor("#bbb"))
+        bar.setTabTextColor(3, QColor("#bbb"))
+        if idx == 2:
+            bar.setTabTextColor(3, QColor("#7fd0ff"))
+            self.tabs.setTabText(3, "🔀 Launch")   # marker on the twin
+        elif idx == 3:
+            bar.setTabTextColor(2, QColor("#7fd0ff"))
+            self.tabs.setTabText(2, "🔀 Collect")
     
 
     def open_settings(self):
