@@ -9,5 +9,6 @@
       "username": "Administrator",
       "domain": "TEST"
     }
-  ]
+  ],
+  "winpmem_path": "D:/winpmem_mini_x64_rc2.exe"
 }

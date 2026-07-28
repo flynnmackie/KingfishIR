@@ -911,15 +911,7 @@ class CollectTab(QWidget):
                                 "Tick at least one host, and either an artefact, UAC, or KAPE.")
             return
 
-        self.collect_btn.setEnabled(False)
-        self.collect_btn.setText("Collecting…")
-        from PySide6.QtCore import QTimer
-        self._elapsed = 0
-        self._timer = QTimer(self)
-        self._timer.timeout.connect(self._tick)
-        self._timer.start(1000)
-
-        # Guardrail: a ticked external-tool option must have its Settings path set.
+        # Guardrail: ticked external-tool options must have their Settings path set.
         missing = []
         if self.run_uac_cb.isChecked() and not self.state.config.get("uac_path", ""):
             missing.append("UAC")
@@ -934,6 +926,12 @@ class CollectTab(QWidget):
                 + "\n  • ".join(missing)
                 + "\n\nSet the path in Settings, or untick the option.")
             return
+
+        self.collect_btn.setEnabled(False)      # <-- everything below stays as-is
+        self.collect_btn.setText("Collecting…")
+        from PySide6.QtCore import QTimer
+        self._elapsed = 0
+        ...
         
 
         run_folder = run_timestamp()
