@@ -598,7 +598,8 @@ class CollectWorker(QObject):
     error = Signal(str)
 
     def __init__(self, hosts, selected_ids, store, audit, run_folder,
-                 run_uac=False, uac_folder="", run_kape=False, kape_folder=""):
+                 run_uac=False, uac_folder="", run_kape=False, kape_folder="",
+                 dump_mem=False, winpmem_exe=""):
         super().__init__()
         self.hosts = hosts
         self.selected_ids = selected_ids
@@ -609,6 +610,8 @@ class CollectWorker(QObject):
         self.uac_folder = uac_folder
         self.run_kape = run_kape
         self.kape_folder = kape_folder
+        self.dump_mem = dump_mem
+        self.winpmem_exe = winpmem_exe
 
     def run(self):
         # live-feed the audit log into the Log tab
@@ -631,6 +634,11 @@ class CollectWorker(QObject):
 
                     catalogue = catalogue_for(host.actual_os)
                     chosen = [a for a in catalogue if a.id in self.selected_ids]
+
+                    if self.dump_mem and host.actual_os is OSFamily.WINDOWS and self.winpmem_exe:
+                        from core.winpmem_runner import run_winpmem
+                        run_winpmem(host, transport, self.winpmem_exe, self.audit,
+                                    out_root="collected", run_folder=self.run_folder)
 
                     results = collect_from_host(host, chosen, transport, self.audit,
                                                 out_root="collected", run_folder=self.run_folder)
@@ -736,6 +744,15 @@ class CollectTab(QWidget):
         self.run_kape_cb.setToolTip("Requires the KAPE folder path set in Settings (⚙)")
         right.addWidget(self.run_kape_cb)
 
+        self.dump_mem_cb = QCheckBox("Dump memory (WinPmem, Windows)")
+        self.dump_mem_cb.setStyleSheet(
+            "QCheckBox { padding: 4px 2px; font-weight: bold; }"
+            "QCheckBox::indicator { width: 15px; height: 15px; border: 1px solid #6a6a6a; "
+            "border-radius: 3px; background-color: #4a4a4a; }"
+            "QCheckBox::indicator:checked { background-color: #1b5e20; border: 1px solid #43a047; }")
+        self.dump_mem_cb.setToolTip("Requires the WinPmem exe path set in Settings (⚙)")
+        right.addWidget(self.dump_mem_cb)
+
         self.status = QLabel("")
         self.status.setStyleSheet("color: #7fd0ff; font-style: italic; padding: 4px 0;")
         right.addWidget(self.status)
@@ -765,6 +782,7 @@ class CollectTab(QWidget):
         self.populate_artefacts()
         self.run_uac_cb.setVisible(os_family is OSFamily.UNIX)
         self.run_kape_cb.setVisible(os_family is OSFamily.WINDOWS)
+        self.dump_mem_cb.setVisible(os_family is OSFamily.WINDOWS)
 
     def populate_artefacts(self):
         self.artefact_list.blockSignals(True)
@@ -887,7 +905,8 @@ class CollectTab(QWidget):
         selected_ids = set(self.checked_artefacts)      # from the persistent set
 
         if not hosts or (not selected_ids and not self.run_uac_cb.isChecked()
-                         and not self.run_kape_cb.isChecked()):
+                         and not self.run_kape_cb.isChecked()
+                         and not self.dump_mem_cb.isChecked()):
             QMessageBox.warning(self, "Nothing selected",
                                 "Tick at least one host, and either an artefact, UAC, or KAPE.")
             return
@@ -908,7 +927,9 @@ class CollectTab(QWidget):
                                       run_uac=self.run_uac_cb.isChecked(),
                                       uac_folder=self.state.config.get("uac_path", ""),
                                       run_kape=self.run_kape_cb.isChecked(),
-                                      kape_folder=self.state.config.get("kape_path", ""))
+                                      kape_folder=self.state.config.get("kape_path", ""),
+                                      dump_mem=self.dump_mem_cb.isChecked(),
+                                      winpmem_exe=self.state.config.get("winpmem_path", ""))
         self.c_worker.moveToThread(self.c_thread)
         self.c_thread.started.connect(self.c_worker.run)
         self.c_worker.log_row.connect(self.log_tab.add_row)
@@ -976,6 +997,18 @@ class SettingsDialog(QWidget):
         kape_row.addWidget(kape_browse)
         layout.addLayout(kape_row)
 
+        # WinPMem path row
+        pmem_row = QHBoxLayout()
+        pmem_label = QLabel("WinPmem EXE:")
+        pmem_label.setFixedWidth(170)
+        pmem_row.addWidget(pmem_label)
+        self.pmem_in = QLineEdit(self.state.config.get("winpmem_path", ""))
+        pmem_row.addWidget(self.pmem_in)
+        pmem_browse = QPushButton("Browse")
+        pmem_browse.clicked.connect(lambda: self._browse(self.pmem_in, folder=False))
+        pmem_row.addWidget(pmem_browse)
+        layout.addLayout(pmem_row)
+
         # Save / Cancel
         btn_row = QHBoxLayout()
         btn_row.addStretch()
@@ -1000,6 +1033,7 @@ class SettingsDialog(QWidget):
         from core.config import save_config
         self.state.config["uac_path"] = self.uac_in.text().strip()
         self.state.config["kape_path"] = self.kape_in.text().strip()
+        self.state.config["winpmem_path"] = self.pmem_in.text().strip()
         save_config(self.state.config)
         self.close()
 
