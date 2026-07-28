@@ -1,5 +1,13 @@
 {
   "uac_path": "D:/uac-main",
   "eztools_path": "D:/EZTools",
-  "kape_path": "D:/KAPE"
+  "kape_path": "D:/KAPE",
+  "profiles": [
+    {
+      "name": "dmn",
+      "kind": "DOMAIN_KERBEROS",
+      "username": "Administrator",
+      "domain": "TEST"
+    }
+  ]
 }

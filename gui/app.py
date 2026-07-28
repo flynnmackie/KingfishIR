@@ -352,11 +352,30 @@ class AccessTab(QWidget):
         right.addWidget(self.profile_list)
         right.addStretch()
         layout.addLayout(right, 1)
+        self.profile_list.itemClicked.connect(self._populate_from_profile)
+        self._load_saved_profiles()
 
         # show/hide the right fields based on the selected kind
         self.kind_in.currentTextChanged.connect(self.update_fields)
         self.update_fields()          # set initial visibility
 
+    def _populate_from_profile(self, item):
+        name = item.data(Qt.UserRole) if item.data(Qt.UserRole) else item.text()
+        p = self.state.store.get(name)
+        if not p:
+            return
+        self.name_in.setText(p.name)
+        self.user_in.setText(p.username)
+        self.domain_in.setText(p.domain or "")
+        self.pass_in.clear()                  # password NOT restored - type it
+        self.sudo_in.clear()
+        # set the kind dropdown to match
+        for label, k in _KIND_CHOICES.items():
+            if k is p.kind:
+                self.kind_in.setCurrentText(label)
+                break
+        self.pass_in.setFocus()               # cursor lands in the password field
+        
     def update_fields(self):
         """Show only the fields relevant to the selected credential kind."""
         kind = _KIND_CHOICES[self.kind_in.currentText()]
@@ -381,9 +400,38 @@ class AccessTab(QWidget):
             sudo_secret=self.sudo_in.text(),
         )
         self.state.store.add(profile)
+        self.state.store.add(profile)
+        self._persist_skeletons()
         self.refresh_profiles()
         for w in (self.name_in, self.domain_in, self.user_in, self.pass_in, self.sudo_in):
             w.clear()
+
+    def _persist_skeletons(self):
+        from core.config import save_profiles
+        skels = []
+        for n in self.state.store.names():
+            p = self.state.store.get(n)
+            skels.append({
+                "name": p.name,
+                "kind": p.kind.name,          # enum name, e.g. "DOMAIN_KERBEROS"
+                "username": p.username,
+                "domain": p.domain or "",
+            })                                 # NOTE: no secret, no sudo secret
+        save_profiles(skels)
+
+    def _load_saved_profiles(self):
+        from core.config import load_profiles
+        for sk in load_profiles():
+            try:
+                kind = CredKind[sk["kind"]]          # reconstruct enum from name
+            except KeyError:
+                continue
+            # recreate with EMPTY secret - user supplies password per session
+            profile = CredentialProfile(
+                name=sk["name"], kind=kind, username=sk["username"],
+                secret="", domain=sk.get("domain") or None, sudo_secret="")
+            self.state.store.add(profile)
+        self.refresh_profiles()
 
     def refresh_profiles(self):
         self.profile_list.clear()

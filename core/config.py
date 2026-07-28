@@ -21,3 +21,13 @@ def load_config() -> dict:
 
 def save_config(data: dict) -> None:
     CONFIG_PATH.write_text(json.dumps(data, indent=2))
+
+def save_profiles(skeletons: list[dict]) -> None:
+    """Persist profile skeletons (NO secrets - NFR4). Paths+metadata only."""
+    data = load_config()
+    data["profiles"] = skeletons
+    save_config(data)
+
+
+def load_profiles() -> list[dict]:
+    return load_config().get("profiles", [])
