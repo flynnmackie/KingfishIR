@@ -744,10 +744,10 @@ class CollectTab(QWidget):
         self.run_kape_cb.setToolTip("Requires the KAPE folder path set in Settings (⚙)")
         right.addWidget(self.run_kape_cb)
 
-        self.dump_mem_cb = QCheckBox("Dump memory (WinPmem, Windows)")
+        self.dump_mem_cb = QCheckBox("Dump Memory (WinPmem)")
         self.dump_mem_cb.setStyleSheet(
             "QCheckBox { padding: 4px 2px; font-weight: bold; }"
-            "QCheckBox::indicator { width: 15px; height: 15px; border: 1px solid #6a6a6a; "
+            "QCheckBox::indicator { width: 10px; height: 10px; border: 1px solid #6a6a6a; "
             "border-radius: 3px; background-color: #4a4a4a; }"
             "QCheckBox::indicator:checked { background-color: #1b5e20; border: 1px solid #43a047; }")
         self.dump_mem_cb.setToolTip("Requires the WinPmem exe path set in Settings (⚙)")
@@ -918,6 +918,22 @@ class CollectTab(QWidget):
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
         self._timer.start(1000)
+
+        # Guardrail: a ticked external-tool option must have its Settings path set.
+        missing = []
+        if self.run_uac_cb.isChecked() and not self.state.config.get("uac_path", ""):
+            missing.append("UAC")
+        if self.run_kape_cb.isChecked() and not self.state.config.get("kape_path", ""):
+            missing.append("KAPE")
+        if self.dump_mem_cb.isChecked() and not self.state.config.get("winpmem_path", ""):
+            missing.append("WinPmem (memory dump)")
+        if missing:
+            QMessageBox.warning(
+                self, "Tool path not set",
+                "You enabled these but no path is set in Settings (⚙):\n\n  • "
+                + "\n  • ".join(missing)
+                + "\n\nSet the path in Settings, or untick the option.")
+            return
         
 
         run_folder = run_timestamp()
