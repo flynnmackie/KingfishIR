@@ -744,7 +744,7 @@ class CollectTab(QWidget):
         self.run_kape_cb.setToolTip("Requires the KAPE folder path set in Settings (⚙)")
         right.addWidget(self.run_kape_cb)
 
-        self.dump_mem_cb = QCheckBox("Dump Memory (WinPmem)")
+        self.dump_mem_cb = QCheckBox("Dump Memory (WinPmem - MUST HAVE INBOUND SMB ENABLED)")
         self.dump_mem_cb.setStyleSheet(
             "QCheckBox { padding: 4px 2px; font-weight: bold; }"
             "QCheckBox::indicator { width: 10px; height: 10px; border: 1px solid #6a6a6a; "

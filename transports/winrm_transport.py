@@ -110,3 +110,40 @@ class WinRMTransport(Transport):
 
     def remove_dir(self, path: str) -> None:
         self._ps(f"Remove-Item -Recurse -Force -Path '{path}' -ErrorAction SilentlyContinue")
+
+    def fetch_file_smb(self, remote_win_path: str, local_dest: str,
+                       progress=None) -> int:
+        """Stream a large file off the target's admin share (C$) via SMB.
+
+        Reads in 4 MB chunks straight to disk - RAM stays flat regardless of
+        file size. Used for multi-GB artefacts (memory dumps) that WinRM's
+        fetch cannot handle. Returns bytes written.
+        """
+        import smbclient
+
+        user = self.profile.username
+        if self.profile.domain:
+            user = f"{self.profile.domain}\\{user}"
+
+        smbclient.register_session(
+            self.host_ip, username=user, password=self.profile.secret)
+        try:
+            # C:\Windows\Temp\x -> \\host\C$\Windows\Temp\x
+            share_path = remote_win_path.replace("C:\\", "C$\\", 1)
+            unc = rf"\\{self.host_ip}\{share_path}"
+            written = 0
+            with smbclient.open_file(unc, mode="rb") as src, open(local_dest, "wb") as dst:
+                while True:
+                    chunk = src.read(4 * 1024 * 1024)
+                    if not chunk:
+                        break
+                    dst.write(chunk)
+                    written += len(chunk)
+                    if progress:
+                        progress(written)
+            return written
+        finally:
+            try:
+                smbclient.delete_session(self.host_ip)
+            except Exception:
+                pass

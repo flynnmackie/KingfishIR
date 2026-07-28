@@ -10,6 +10,19 @@ def run_winpmem(host, transport, winpmem_exe, audit, out_root, run_folder):
     stage = r"C:\Windows\Temp\rtc_mem"
     remote_exe = rf"{stage}\winpmem.exe"
     remote_dump = rf"{stage}\memory.raw"
+    # Pre-flight: confirm SMB (445) is reachable before the expensive dump
+    import socket
+    audit.log(ip, "memory preflight", artefact="Memory", outcome="ok",
+              detail="checking SMB (445) reachability…")
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(4)
+    reachable = (s.connect_ex((ip, 445)) == 0)
+    s.close()
+    if not reachable:
+        audit.log(ip, "memory preflight", artefact="Memory", outcome="error",
+                  detail="SMB port 445 not reachable - cannot retrieve dump, skipping. "
+                         "Enable File & Printer Sharing (SMB-In) on the target firewall.")
+        return False
 
     try:
         audit.log(ip, "memory stage", artefact="Memory", outcome="ok",
@@ -35,18 +48,21 @@ def run_winpmem(host, transport, winpmem_exe, audit, out_root, run_folder):
                       detail="WinPmem produced no dump")
             return False
 
-        # Pull it back (large - transfer-bound)
+        # Pull it back via SMB (admin share C$) - streamed in chunks to disk,
+        # because WinRM's fetch cannot handle multi-GB files.
+        mb = int(size_check) // (1024 * 1024)
         audit.log(ip, "memory transfer", artefact="Memory", outcome="ok",
-                  detail=f"retrieving {int(size_check)//(1024*1024)} MB dump (slow)…")
-        data = transport.fetch_file(remote_dump)
+                  detail=f"retrieving {mb} MB dump via SMB (large - please wait)…")
 
         dest_dir = Path(out_root) / run_folder / ip / "Memory"
         dest_dir.mkdir(parents=True, exist_ok=True)
         dest = dest_dir / "memory.raw"
-        dest.write_bytes(data)
+
+        written = transport.fetch_file_smb(remote_dump, str(dest))
+
         audit.log(ip, "memory collect", artefact="Memory",
-                  size_bytes=str(len(data)), outcome="ok",
-                  detail=f"retrieved memory.raw ({len(data)//(1024*1024)} MB)")
+                  size_bytes=str(written), outcome="ok",
+                  detail=f"retrieved memory.raw ({written // (1024*1024)} MB) via SMB")
         return True
 
     except Exception as exc:
