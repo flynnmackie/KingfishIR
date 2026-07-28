@@ -94,6 +94,14 @@ WINDOWS_CATALOGUE: list[Artefact] = [
              prepare=rf"reg save HKLM\SECURITY {_WIN_STAGE}\rtc_sechive.hiv /y"),
 
     # Event logs - locked; export with wevtutil epl.
+
+    # Entire event-log folder - ALL .evtx (hundreds), not just the four above.
+    Artefact("win_evtx_all", "ALL EVENT LOGS (entire winevt folder)", "EventLogs",
+             OSFamily.WINDOWS, volatility=15, is_command=False, is_archive=True,
+             spec=rf"{_WIN_STAGE}\rtc_all_evtx.zip",
+             prepare=(rf"robocopy C:\Windows\System32\winevt\Logs {_WIN_STAGE}\evtx *.evtx "
+                      rf"/B /R:0 /W:0 /NP /NFL /NDL /NJH /NJS > $null 2>&1; "
+                      rf"Compress-Archive -Path {_WIN_STAGE}\evtx\* -DestinationPath {_WIN_STAGE}\rtc_all_evtx.zip -Force")),
     Artefact("win_evtx_security", "Security event log", "EventLogs", OSFamily.WINDOWS,
              volatility=15, is_command=False, spec=rf"{_WIN_STAGE}\rtc_security.evtx",
              prepare=rf"wevtutil epl Security {_WIN_STAGE}\rtc_security.evtx /ow:true"),
