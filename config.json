@@ -14,9 +14,23 @@
       "kind": "LOCAL_NTLM",
       "username": "WindowsUser",
       "domain": ""
+    },
+    {
+      "name": "Linux",
+      "kind": "SSH_PASSWORD",
+      "username": "unixuser",
+      "domain": ""
+    },
+    {
+      "name": "Velo",
+      "kind": "SSH_PASSWORD",
+      "username": "velo",
+      "domain": ""
     }
   ],
   "winpmem_path": "D:/winpmem_mini_x64_rc2.exe",
   "sysmon_exe": "D:/Sysmon/Sysmon64.exe",
-  "sysmon_config": "D:/Sysmon/sysmonconfig.xml"
+  "sysmon_config": "D:/Sysmon/sysmonconfig.xml",
+  "velo_msi": "D:/Org__root__velociraptor-v0.75.6-windows-amd64.msi",
+  "velo_deb": "D:/velociraptor_client_0.75.6_amd64.deb"
 }

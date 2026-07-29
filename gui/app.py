@@ -683,7 +683,7 @@ class LauncherWorker(QObject):
     error = Signal(str)
 
     def __init__(self, hosts, store, audit, do_sysmon, sysmon_exe, sysmon_config,
-                 do_velo=False, velo_bin_win="", velo_bin_linux="", velo_config=""):
+                 do_velo=False, velo_msi="", velo_deb=""):
         super().__init__()
         self.hosts = hosts
         self.store = store
@@ -692,9 +692,8 @@ class LauncherWorker(QObject):
         self.sysmon_exe = sysmon_exe
         self.sysmon_config = sysmon_config
         self.do_velo = do_velo
-        self.velo_bin_win = velo_bin_win
-        self.velo_bin_linux = velo_bin_linux
-        self.velo_config = velo_config
+        self.velo_msi = velo_msi
+        self.velo_deb = velo_deb
 
     def run(self):
         self.audit.subscribe(self.log_row.emit)
@@ -725,14 +724,13 @@ class LauncherWorker(QObject):
 
                     if self.do_velo:
                         from core.launcher_runner import deploy_velociraptor
-                        velo_bin = (self.velo_bin_win if host.actual_os is OSFamily.WINDOWS
-                                    else self.velo_bin_linux)
-                        if velo_bin:
-                            deploy_velociraptor(host, transport, velo_bin,
-                                                self.velo_config, self.audit)
+                        pkg = (self.velo_msi if host.actual_os is OSFamily.WINDOWS
+                               else self.velo_deb)
+                        if pkg:
+                            deploy_velociraptor(host, transport, pkg, self.audit)
                         else:
                             self.audit.log(host.ip, "velo", outcome="error",
-                                           detail="no Velociraptor binary set for this OS - skipped")
+                                           detail="no Velociraptor package set for this OS - skipped")
                 except Exception as exc:
                     self.error.emit(f"{host.ip}: {exc}")
                 finally:
@@ -1131,13 +1129,12 @@ class LauncherTab(QWidget):
         right.addWidget(self.velo_cb)
 
         for key, label, attr in (
-            ("velo_bin_win", "Velo exe (Win):", "velo_bin_win_in"),
-            ("velo_bin_linux", "Velo bin (Linux):", "velo_bin_linux_in"),
-            ("velo_config", "Velo config:", "velo_config_in")):
+            ("velo_msi", "Velo MSI (Win):", "velo_msi_in"),
+            ("velo_deb", "Velo DEB (Linux):", "velo_deb_in")):
             row = QHBoxLayout()
-            row.setContentsMargins(50, 0, 0, 0)
+            row.setContentsMargins(20, 0, 0, 0)
             lbl = QLabel(label)
-            lbl.setFixedWidth(100)
+            lbl.setFixedWidth(130)
             row.addWidget(lbl)
             field = QLineEdit(self.state.config.get(key, ""))
             setattr(self, attr, field)
@@ -1171,9 +1168,8 @@ class LauncherTab(QWidget):
         from core.config import save_config
         self.state.config["sysmon_exe"] = self.sysmon_exe_in.text().strip()
         self.state.config["sysmon_config"] = self.sysmon_cfg_in.text().strip()
-        self.state.config["velo_bin_win"] = self.velo_bin_win_in.text().strip()
-        self.state.config["velo_bin_linux"] = self.velo_bin_linux_in.text().strip()
-        self.state.config["velo_config"] = self.velo_config_in.text().strip()
+        self.state.config["velo_msi"] = self.velo_msi_in.text().strip()
+        self.state.config["velo_deb"] = self.velo_deb_in.text().strip()
         save_config(self.state.config)
 
     def on_run(self):
@@ -1193,9 +1189,10 @@ class LauncherTab(QWidget):
             QMessageBox.warning(self, "Sysmon paths missing",
                                 "Set the Sysmon exe and config paths first.")
             return
-        if self.velo_cb.isChecked() and not self.velo_config_in.text().strip():
-            QMessageBox.warning(self, "Velociraptor config missing",
-                                "Set the Velociraptor client config path first.")
+        if self.velo_cb.isChecked() and not (self.velo_msi_in.text().strip()
+                                             or self.velo_deb_in.text().strip()):
+            QMessageBox.warning(self, "Velociraptor package missing",
+                                "Set at least one Velociraptor package (MSI or DEB) first.")
             return
 
         self.run_btn.setEnabled(False)
@@ -1207,9 +1204,8 @@ class LauncherTab(QWidget):
             self.sysmon_exe_in.text().strip(),
             self.sysmon_cfg_in.text().strip(),
             do_velo=self.velo_cb.isChecked(),
-            velo_bin_win=self.velo_bin_win_in.text().strip(),
-            velo_bin_linux=self.velo_bin_linux_in.text().strip(),
-            velo_config=self.velo_config_in.text().strip())
+            velo_msi=self.velo_msi_in.text().strip(),
+            velo_deb=self.velo_deb_in.text().strip())
         self.l_worker.moveToThread(self.l_thread)
         self.l_thread.started.connect(self.l_worker.run)
         self.l_worker.log_row.connect(self.log_tab.add_row)
