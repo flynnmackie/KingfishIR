@@ -53,6 +53,7 @@ def deploy_velociraptor(host, transport, velo_package, audit):
     ip = host.ip
     is_windows = host.actual_os is OSFamily.WINDOWS
 
+    # 1. pick paths per platform
     if is_windows:
         stage = r"C:\ProgramData\rtc_velo"
         remote_pkg = rf"{stage}\velo_client.msi"
@@ -61,30 +62,43 @@ def deploy_velociraptor(host, transport, velo_package, audit):
         remote_pkg = f"{stage}/velo_client.deb"
 
     try:
+        # 2. push the installer
         audit.log(ip, "velo push", artefact="Velociraptor", outcome="ok",
                   detail="pushing Velociraptor installer package")
         transport.make_dir(stage)
         transport.put_file(velo_package, remote_pkg)
 
+        # 3. install per platform
         if is_windows:
-            # MSI over WinRM fails with a context error (2203); run it via a
-            # scheduled task as SYSTEM, which has the required Installer access.
             audit.log(ip, "velo install", artefact="Velociraptor", outcome="ok",
                       detail="installing MSI via scheduled task (SYSTEM context)")
+            bat = rf"{stage}\velo_install.bat"
+            bat_body = f'msiexec /i "{remote_pkg}" /quiet /norestart\r\n'
+            transport.run_command(
+                f"powershell -Command \"Set-Content -Path '{bat}' -Value @'\n{bat_body}'@\"")
+            # Register with the action INLINED (a $a variable does not survive the
+            # single-line -Command string), run it, wait. -Confirm:0 not $false
+            # (which mangles to the string 'False' through the command layers).
             ps = (
-                "$a = New-ScheduledTaskAction -Execute 'msiexec.exe' "
-                f"-Argument '/i \"\"{remote_pkg}\"\" /quiet /norestart'; "
-                "Register-ScheduledTask -TaskName 'rtc_velo_install' -Action $a "
+                "Register-ScheduledTask -TaskName 'rtc_velo_install' "
+                f"-Action (New-ScheduledTaskAction -Execute '{bat}') "
                 "-User 'SYSTEM' -RunLevel Highest -Force | Out-Null; "
                 "Start-ScheduledTask -TaskName 'rtc_velo_install'; "
-                "Start-Sleep -Seconds 25; "
-                "Unregister-ScheduledTask -TaskName 'rtc_velo_install' -Confirm:$false"
+                "Start-Sleep -Seconds 30; "
+                "Unregister-ScheduledTask -TaskName 'rtc_velo_install' -Confirm:0"
             )
             transport.run_command(f'powershell -Command "{ps}"')
-            svc = transport.run_command(
-                "powershell -Command \"(Get-Service Velociraptor* -ErrorAction SilentlyContinue "
-                "| Select-Object -First 1).Status\""
-            ).decode(errors="replace").strip()
+            # poll for the service (can take a moment to register)
+            svc = ""
+            for _ in range(6):
+                svc = transport.run_command(
+                    "powershell -Command \"(Get-Service Velociraptor* -ErrorAction SilentlyContinue "
+                    "| Select-Object -First 1).Status\""
+                ).decode(errors="replace").strip()
+                if svc.lower() == "running":
+                    break
+                import time
+                time.sleep(10)
             running = svc.lower() == "running"
             detail = f"service status: {svc or 'not found'}"
         else:
@@ -98,9 +112,12 @@ def deploy_velociraptor(host, transport, velo_package, audit):
             running = "active" in chk and "inactive" not in chk
             detail = f"systemctl is-active: {chk}"
 
+        # 4. verify
         if running:
             audit.log(ip, "velo verify", artefact="Velociraptor", outcome="ok",
                       detail="Velociraptor client service confirmed RUNNING")
+            audit.log(ip, "velo deployed", artefact="Velociraptor", outcome="ok",
+                      detail=f"client left on host at {stage}")
             return True
         else:
             audit.log(ip, "velo verify", artefact="Velociraptor", outcome="error",
@@ -109,3 +126,7 @@ def deploy_velociraptor(host, transport, velo_package, audit):
     except Exception as exc:
         audit.log(ip, "velo", artefact="Velociraptor", outcome="error", detail=str(exc))
         return False
+
+
+def stub():
+    ()
