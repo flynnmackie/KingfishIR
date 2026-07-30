@@ -49,10 +49,7 @@ def deploy_sysmon(host, transport, sysmon_exe, sysmon_config, audit):
     # installer files though (the service is already installed from them).
  
 def deploy_velociraptor(host, transport, velo_package, audit):
-    """Deploy Velociraptor via its self-contained installer (MSI on Windows, DEB on Linux).
-
-    Config is embedded in the package; the installer registers the service.
-    """
+    """Deploy Velociraptor via its installer (MSI on Windows via scheduled task, DEB on Linux)."""
     ip = host.ip
     is_windows = host.actual_os is OSFamily.WINDOWS
 
@@ -70,9 +67,20 @@ def deploy_velociraptor(host, transport, velo_package, audit):
         transport.put_file(velo_package, remote_pkg)
 
         if is_windows:
+            # MSI over WinRM fails with a context error (2203); run it via a
+            # scheduled task as SYSTEM, which has the required Installer access.
             audit.log(ip, "velo install", artefact="Velociraptor", outcome="ok",
-                      detail="installing via msiexec (silent)")
-            transport.run_command(f'msiexec /i "{remote_pkg}" /quiet')
+                      detail="installing MSI via scheduled task (SYSTEM context)")
+            ps = (
+                "$a = New-ScheduledTaskAction -Execute 'msiexec.exe' "
+                f"-Argument '/i \"\"{remote_pkg}\"\" /quiet /norestart'; "
+                "Register-ScheduledTask -TaskName 'rtc_velo_install' -Action $a "
+                "-User 'SYSTEM' -RunLevel Highest -Force | Out-Null; "
+                "Start-ScheduledTask -TaskName 'rtc_velo_install'; "
+                "Start-Sleep -Seconds 25; "
+                "Unregister-ScheduledTask -TaskName 'rtc_velo_install' -Confirm:$false"
+            )
+            transport.run_command(f'powershell -Command "{ps}"')
             svc = transport.run_command(
                 "powershell -Command \"(Get-Service Velociraptor* -ErrorAction SilentlyContinue "
                 "| Select-Object -First 1).Status\""

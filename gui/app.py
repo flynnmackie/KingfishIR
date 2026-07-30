@@ -1181,9 +1181,6 @@ class LauncherTab(QWidget):
         if not self.sysmon_cb.isChecked() and not self.velo_cb.isChecked():
             QMessageBox.warning(self, "Nothing to run", "Tick a launcher (Sysmon or Velociraptor).")
             return
-        if not self.sysmon_cb.isChecked():
-            QMessageBox.warning(self, "Nothing to run", "Tick a launcher (e.g. Sysmon).")
-            return
         if self.sysmon_cb.isChecked() and not (self.sysmon_exe_in.text().strip()
                                                and self.sysmon_cfg_in.text().strip()):
             QMessageBox.warning(self, "Sysmon paths missing",
