@@ -1116,7 +1116,6 @@ class LauncherTab(QWidget):
 
         # Sysmon exe row
         sm_exe_row = QHBoxLayout()
-        sm_exe_row = QHBoxLayout()
         sm_exe_row.setContentsMargins(50, 0, 0, 0)      # indent under the header
         sm_exe_lbl = QLabel("Sysmon exe:")
         sm_exe_lbl.setFixedWidth(100)
@@ -1129,7 +1128,6 @@ class LauncherTab(QWidget):
         preset_layout.addLayout(sm_exe_row)
 
         # Sysmon config row
-        sm_cfg_row = QHBoxLayout()
         sm_cfg_row = QHBoxLayout()
         sm_cfg_row.setContentsMargins(50, 0, 0, 0)
         sm_cfg_lbl = QLabel("Sysmon config:")
@@ -1149,7 +1147,7 @@ class LauncherTab(QWidget):
         # ===== Velociraptor preset =====
         velo_header = QLabel("Velociraptor Install (Windows & Linux)")
         velo_header.setStyleSheet("font-weight: bold; font-size: 14px; padding: 6px 0 2px 0;")
-        right.addWidget(velo_header)
+        preset_layout.addWidget(velo_header)
         self.velo_cb = QCheckBox("Deploy Velociraptor client on selected hosts")
         self.velo_cb.setStyleSheet(
             "QCheckBox { padding: 4px 2px;}"
@@ -1178,15 +1176,16 @@ class LauncherTab(QWidget):
 
         preset_layout.addStretch(1)
 
+        # Run button + status live on `right` (shared by preset and custom modes)
         self.run_btn = QPushButton("Run selected launcher(s)")
         self.run_btn.clicked.connect(self.on_run)
         right.addWidget(self.run_btn)
         self.status = QLabel("")
         self.status.setStyleSheet("color: #7fd0ff; font-style: italic; padding: 4px 0;")
-        preset_layout.addWidget(self.status)
+        right.addWidget(self.status)
 
+        self.switch_mode("preset")      # set initial view
         layout.addLayout(right, 3)
-        preset_layout.addLayout(right, 3)
 
     def _mode_toggle_style(self, active_mode):
         base = ("QPushButton { padding: 8px 16px; border: none; "
