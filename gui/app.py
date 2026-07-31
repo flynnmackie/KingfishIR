@@ -1066,23 +1066,53 @@ class LauncherTab(QWidget):
         left.addWidget(self.load_btn)
         layout.addLayout(left, 4)
 
-        # ---- right: launcher panel ----
+        # ---- right: launcher panel with preset/custom toggle ----
         right = QVBoxLayout()
         right.addWidget(QLabel("Launchers"))
         right.addWidget(_help_label(
-            "Preset tools have prepackaged commands. Set the tool paths below; they persist."))
+            "Preset tools have prepackaged commands. Custom lets you define your own."))
+
+        self.launcher_mode = "preset"
+
+        # toggle bar (mirrors the Collect tab's Windows/Unix toggle)
+        toggle_row = QHBoxLayout()
+        toggle_row.setSpacing(0)
+        self.preset_btn = QPushButton("Presets")
+        self.preset_btn.clicked.connect(lambda: self.switch_mode("preset"))
+        self.custom_btn = QPushButton("Custom")
+        self.custom_btn.clicked.connect(lambda: self.switch_mode("custom"))
+        toggle_row.addWidget(self.preset_btn)
+        toggle_row.addWidget(self.custom_btn)
+        right.addLayout(toggle_row)
+
+        # preset panel (contains Sysmon + Velociraptor - the existing content)
+        self.preset_panel = QWidget()
+        preset_layout = QVBoxLayout(self.preset_panel)
+        preset_layout.setContentsMargins(0, 0, 0, 0)
+        right.addWidget(self.preset_panel)
+
+        # custom panel (placeholder - functionality tomorrow)
+        self.custom_panel = QWidget()
+        custom_layout = QVBoxLayout(self.custom_panel)
+        custom_layout.setContentsMargins(0, 0, 0, 0)
+        custom_layout.addWidget(QLabel("Custom launchers"))
+        custom_layout.addWidget(_help_label(
+            "Define your own tool: point at an executable, specify a command, "
+            "and choose what to retrieve. (Coming next.)"))
+        custom_layout.addStretch(1)
+        right.addWidget(self.custom_panel)
 
         # ===== Sysmon preset =====
         sysmon_header = QLabel("Sysmon Install (Windows)")
         sysmon_header.setStyleSheet("font-weight: bold; font-size: 14px; padding: 6px 0 2px 0;")
-        right.addWidget(sysmon_header)
+        preset_layout.addWidget(sysmon_header)
         self.sysmon_cb = QCheckBox("Deploy Sysmon on selected Windows hosts")
         self.sysmon_cb.setStyleSheet(
             "QCheckBox { padding: 4px 2px; }"
             "QCheckBox::indicator { width: 8px; height: 8px; border: 1px solid #6a6a6a; "
             "border-radius: 3px; background-color: #4a4a4a; }"
             "QCheckBox::indicator:checked { background-color: #1b5e20; border: 1px solid #43a047; }")
-        right.addWidget(self.sysmon_cb)
+        preset_layout.addWidget(self.sysmon_cb)
 
         # Sysmon exe row
         sm_exe_row = QHBoxLayout()
@@ -1096,7 +1126,7 @@ class LauncherTab(QWidget):
         sm_exe_browse = QPushButton("Browse")
         sm_exe_browse.clicked.connect(lambda: self._browse_into(self.sysmon_exe_in))
         sm_exe_row.addWidget(sm_exe_browse)
-        right.addLayout(sm_exe_row)
+        preset_layout.addLayout(sm_exe_row)
 
         # Sysmon config row
         sm_cfg_row = QHBoxLayout()
@@ -1110,7 +1140,7 @@ class LauncherTab(QWidget):
         sm_cfg_browse = QPushButton("Browse")
         sm_cfg_browse.clicked.connect(lambda: self._browse_into(self.sysmon_cfg_in))
         sm_cfg_row.addWidget(sm_cfg_browse)
-        right.addLayout(sm_cfg_row)
+        preset_layout.addLayout(sm_cfg_row)
 
         # persist paths when edited
         self.sysmon_exe_in.editingFinished.connect(self._save_launcher_paths)
@@ -1126,7 +1156,7 @@ class LauncherTab(QWidget):
             "QCheckBox::indicator { width: 8px; height: 8px; border: 1px solid #6a6a6a; "
             "border-radius: 3px; background-color: #4a4a4a; }"
             "QCheckBox::indicator:checked { background-color: #1b5e20; border: 1px solid #43a047; }")
-        right.addWidget(self.velo_cb)
+        preset_layout.addWidget(self.velo_cb)
 
         for key, label, attr in (
             ("velo_msi", "Velo MSI (Win):", "velo_msi_in"),
@@ -1142,21 +1172,39 @@ class LauncherTab(QWidget):
             browse = QPushButton("Browse")
             browse.clicked.connect(lambda _, f=field: self._browse_into(f))
             row.addWidget(browse)
-            right.addLayout(row)
+            preset_layout.addLayout(row)
             field.editingFinished.connect(self._save_launcher_paths)
 
 
-        right.addStretch(1)
+        preset_layout.addStretch(1)
 
         self.run_btn = QPushButton("Run selected launcher(s)")
         self.run_btn.clicked.connect(self.on_run)
         right.addWidget(self.run_btn)
         self.status = QLabel("")
         self.status.setStyleSheet("color: #7fd0ff; font-style: italic; padding: 4px 0;")
-        right.addWidget(self.status)
+        preset_layout.addWidget(self.status)
 
         layout.addLayout(right, 3)
+        preset_layout.addLayout(right, 3)
 
+    def _mode_toggle_style(self, active_mode):
+        base = ("QPushButton { padding: 8px 16px; border: none; "
+                "background: #2b2b2b; color: #bbb; }")
+        active = ("QPushButton { padding: 8px 16px; border: none; "
+                  "background: #0e639c; color: white; font-weight: bold; }")
+        preset_style = active if active_mode == "preset" else base
+        custom_style = active if active_mode == "custom" else base
+        return preset_style, custom_style
+
+    def switch_mode(self, mode):
+        self.launcher_mode = mode
+        p_style, c_style = self._mode_toggle_style(mode)
+        self.preset_btn.setStyleSheet(p_style)
+        self.custom_btn.setStyleSheet(c_style)
+        self.preset_panel.setVisible(mode == "preset")
+        self.custom_panel.setVisible(mode == "custom")
+    
     def _browse_into(self, field):
         from PySide6.QtWidgets import QFileDialog
         path, _ = QFileDialog.getOpenFileName(self, "Select file")
@@ -1236,6 +1284,7 @@ class LauncherTab(QWidget):
                 font.setBold(True)
                 item.setFont(font)
             self.host_list.addItem(item)
+    
 
 class SettingsDialog(QWidget):
     """Standalone settings window for external-tool paths."""
