@@ -143,16 +143,22 @@ def run_custom_launcher(host, transport, launcher, audit, out_root, run_folder):
     is_windows = host.actual_os is OSFamily.WINDOWS
     use_sudo = not is_windows        # elevate on Unix; Windows session is already admin
 
-    # where output for this launcher is saved locally
-    dest_dir = Path(out_root) / run_folder / ip / "Launched" / name
+    # launcher output goes to a SEPARATE top-level 'launched/' tree (not mixed
+    # with forensic 'collected/' evidence - keeps chain of custody clean)
+    dest_dir = Path("launched") / run_folder / ip / name
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    # default staging / working location
-    if is_windows:
-        default_stage = r"C:\ProgramData\rtc_launch"
-    else:
-        default_stage = "/tmp/rtc_launch"
-    work_path = launcher.get("work_path", "").strip() or default_stage
+    # default working location = the authenticating user's home directory
+    work_path = launcher.get("work_path", "").strip()
+    if not work_path:
+        if is_windows:
+            work_path = transport.run_command(
+                "powershell -Command \"$env:USERPROFILE\"").decode(errors="replace").strip()
+        else:
+            work_path = transport.run_command(
+                "echo $HOME", use_sudo=use_sudo).decode(errors="replace").strip()
+        if not work_path:      # fallback if resolution fails
+            work_path = r"C:\Windows\Temp\rtc_launch" if is_windows else "/tmp/rtc_launch"
 
     def _wrap(cmd):
         """Wrap a Windows command for the chosen shell; Unix passes through."""
@@ -206,7 +212,7 @@ def run_custom_launcher(host, transport, launcher, audit, out_root, run_folder):
         # ================= PULL FILE =================
         elif mode == "pull":
             remote_path = launcher.get("remote_path", "")
-            limit_mb = int(launcher.get("size_limit_mb", 100) or 100)
+            limit_mb = 5120        # fixed 5GB cap; larger files auto-rejected
 
             # check the remote file size first
             if is_windows:

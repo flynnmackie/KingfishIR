@@ -1091,16 +1091,100 @@ class LauncherTab(QWidget):
         preset_layout.setContentsMargins(0, 0, 0, 0)
         right.addWidget(self.preset_panel)
 
-        # custom panel (placeholder - functionality tomorrow)
+        # ===== custom panel =====
         self.custom_panel = QWidget()
         custom_layout = QVBoxLayout(self.custom_panel)
         custom_layout.setContentsMargins(0, 0, 0, 0)
-        custom_layout.addWidget(QLabel("Custom launchers"))
-        custom_layout.addWidget(_help_label(
-            "Define your own tool: point at an executable, specify a command, "
-            "and choose what to retrieve. (Coming next.)"))
+
+        custom_layout.addWidget(QLabel("Saved custom launchers"))
+        self.custom_list = QListWidget()
+        self.custom_list.setMaximumHeight(140)
+        custom_layout.addWidget(self.custom_list)
+
+        add_header = QLabel("Add a custom launcher")
+        add_header.setStyleSheet("font-weight: bold; font-size: 13px; padding: 8px 0 2px 0;")
+        custom_layout.addWidget(add_header)
+
+        # name
+        nrow = QHBoxLayout()
+        nlbl = QLabel("Name:"); nlbl.setFixedWidth(95); nrow.addWidget(nlbl)
+        self.cl_name = QLineEdit(); nrow.addWidget(self.cl_name)
+        custom_layout.addLayout(nrow)
+
+        # OS + shell
+        orow = QHBoxLayout()
+        olbl = QLabel("OS:"); olbl.setFixedWidth(95); orow.addWidget(olbl)
+        self.cl_os = QComboBox(); self.cl_os.addItems(["Windows", "Unix"])
+        self.cl_os.currentTextChanged.connect(self._cl_refresh_fields)
+        orow.addWidget(self.cl_os)
+        self.cl_shell = QComboBox(); self.cl_shell.addItems(["PowerShell", "CMD"])
+        orow.addWidget(self.cl_shell)
+        custom_layout.addLayout(orow)
+
+        # mode
+        mrow = QHBoxLayout()
+        mlbl = QLabel("Mode:"); mlbl.setFixedWidth(95); mrow.addWidget(mlbl)
+        self.cl_mode = QComboBox(); self.cl_mode.addItems(["Run command", "Push file", "Pull file"])
+        self.cl_mode.currentTextChanged.connect(self._cl_refresh_fields)
+        mrow.addWidget(self.cl_mode)
+        custom_layout.addLayout(mrow)
+
+        # --- Push mode: file first ---
+        self.cl_file_row = QHBoxLayout()
+        flbl = QLabel("File to push:"); flbl.setFixedWidth(95); self.cl_file_row.addWidget(flbl)
+        self.cl_file = QLineEdit(); self.cl_file_row.addWidget(self.cl_file)
+        fbtn = QPushButton("Browse"); fbtn.clicked.connect(lambda: self._browse_into(self.cl_file))
+        self.cl_file_row.addWidget(fbtn)
+        self.cl_file_w = QWidget(); self.cl_file_w.setLayout(self.cl_file_row)
+        custom_layout.addWidget(self.cl_file_w)
+
+        # --- Push mode: execute? then delete? ---
+        self.cl_exec = QCheckBox("Execute the pushed file (captures stdout)")
+        self.cl_exec.stateChanged.connect(self._cl_refresh_fields)
+        custom_layout.addWidget(self.cl_exec)
+        self.cl_del = QCheckBox("Delete pushed file after")
+        custom_layout.addWidget(self.cl_del)
+
+        # --- Command (run-command mode, OR push+execute) ---
+        self.cl_cmd_row = QHBoxLayout()
+        clbl = QLabel("Command:"); clbl.setFixedWidth(95); self.cl_cmd_row.addWidget(clbl)
+        self.cl_cmd = QLineEdit(); self.cl_cmd_row.addWidget(self.cl_cmd)
+        self.cl_cmd_w = QWidget(); self.cl_cmd_w.setLayout(self.cl_cmd_row)
+        custom_layout.addWidget(self.cl_cmd_w)
+
+        # --- Pull mode: remote path ---
+        self.cl_rpath_row = QHBoxLayout()
+        rlbl = QLabel("Remote path:"); rlbl.setFixedWidth(95); self.cl_rpath_row.addWidget(rlbl)
+        self.cl_rpath = QLineEdit(); self.cl_rpath_row.addWidget(self.cl_rpath)
+        self.cl_rpath_w = QWidget(); self.cl_rpath_w.setLayout(self.cl_rpath_row)
+        custom_layout.addWidget(self.cl_rpath_w)
+        self.cl_pull_note = _help_label("Files over 5GB are auto-rejected.")
+        custom_layout.addWidget(self.cl_pull_note)
+        self.cl_smb_note = _help_label("Files over ~200MB use SMB (port 445 must be reachable on the target).")
+        custom_layout.addWidget(self.cl_smb_note)
+
+        # --- optional work/destination path (all modes) ---
+        self.cl_work_row = QHBoxLayout()
+        wlbl = QLabel("Path (opt):"); wlbl.setFixedWidth(95); self.cl_work_row.addWidget(wlbl)
+        self.cl_work = QLineEdit(); self.cl_work.setPlaceholderText("blank = user's home directory")
+        self.cl_work_row.addWidget(self.cl_work)
+        self.cl_work_w = QWidget(); self.cl_work_w.setLayout(self.cl_work_row)
+        custom_layout.addWidget(self.cl_work_w)
+
+        add_btn = QPushButton("+ Add launcher")
+        add_btn.clicked.connect(self._add_custom_launcher)
+        custom_layout.addWidget(add_btn)
         custom_layout.addStretch(1)
-        right.addWidget(self.custom_panel)
+
+        from PySide6.QtWidgets import QScrollArea
+        custom_scroll = QScrollArea()
+        custom_scroll.setWidgetResizable(True)
+        custom_scroll.setWidget(self.custom_panel)
+        custom_scroll.setFrameShape(QScrollArea.NoFrame)
+        right.addWidget(custom_scroll)
+        self._load_custom_launchers()
+        self._cl_refresh_fields()
+
 
         # ===== Sysmon preset =====
         sysmon_header = QLabel("Sysmon Install (Windows)")
@@ -1283,8 +1367,72 @@ class LauncherTab(QWidget):
                 font.setBold(True)
                 item.setFont(font)
             self.host_list.addItem(item)
-    
 
+    def _cl_refresh_fields(self):
+        is_win = self.cl_os.currentText() == "Windows"
+        mode = self.cl_mode.currentText()
+        is_push = mode == "Push file"
+        is_pull = mode == "Pull file"
+        is_run = mode == "Run command"
+        exec_ticked = self.cl_exec.isChecked()
+
+        # a command actually runs in: run-command mode, or push+execute
+        cmd_runs = is_run or (is_push and exec_ticked)
+
+        # push fields
+        self.cl_file_w.setVisible(is_push)
+        self.cl_exec.setVisible(is_push)
+        self.cl_del.setVisible(is_push)
+
+        # command box: run mode always; push mode only if execute ticked
+        self.cl_cmd_w.setVisible(cmd_runs)
+        # {exe} hint only when there's a pushed file to reference
+        self.cl_cmd.setPlaceholderText("use {exe} for the pushed file" if is_push else "")
+
+        # shell toggle: Windows AND a command runs
+        self.cl_shell.setVisible(is_win and cmd_runs)
+
+        # pull fields
+        self.cl_rpath_w.setVisible(is_pull)
+        self.cl_pull_note.setVisible(is_pull)
+        self.cl_smb_note.setVisible(is_pull and is_win)      # SMB note Windows-only
+
+    def _add_custom_launcher(self):
+        name = self.cl_name.text().strip()
+        if not name:
+            QMessageBox.warning(self, "Name required", "Give the launcher a name.")
+            return
+        mode_map = {"Run command": "command", "Push file": "push", "Pull file": "pull"}
+        launcher = {
+            "name": name,
+            "os": "windows" if self.cl_os.currentText() == "Windows" else "unix",
+            "shell": "cmd" if self.cl_shell.currentText() == "CMD" else "powershell",
+            "mode": mode_map[self.cl_mode.currentText()],
+            "command": self.cl_cmd.text().strip(),
+            "exe": self.cl_file.text().strip(),
+            "execute": self.cl_exec.isChecked(),
+            "delete_after": self.cl_del.isChecked(),
+            "remote_path": self.cl_rpath.text().strip(),
+            "size_limit_mb": self.cl_size.text().strip() or "100",
+            "work_path": self.cl_work.text().strip(),
+        }
+        from core.config import load_launchers, save_launchers
+        launchers = load_launchers()
+        launchers.append(launcher)
+        save_launchers(launchers)
+        self._load_custom_launchers()
+        self.cl_name.clear(); self.cl_cmd.clear(); self.cl_file.clear(); self.cl_rpath.clear()
+
+    def _load_custom_launchers(self):
+        from core.config import load_launchers
+        self.custom_list.clear()
+        for lc in load_launchers():
+            item = QListWidgetItem(f"{lc['name']}  ({lc['os']} · {lc['mode']})")
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(Qt.Unchecked)
+            item.setData(Qt.UserRole, lc["name"])
+            self.custom_list.addItem(item)
+    
 class SettingsDialog(QWidget):
     """Standalone settings window for external-tool paths."""
     def __init__(self, state):

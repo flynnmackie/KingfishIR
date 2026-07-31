@@ -31,3 +31,13 @@ def save_profiles(skeletons: list[dict]) -> None:
 
 def load_profiles() -> list[dict]:
     return load_config().get("profiles", [])
+
+def save_launchers(launchers: list[dict]) -> None:
+    """Persist custom launcher definitions (paths + commands, no secrets)."""
+    data = load_config()
+    data["launchers"] = launchers
+    save_config(data)
+
+
+def load_launchers() -> list[dict]:
+    return load_config().get("launchers", [])
