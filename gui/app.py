@@ -777,6 +777,23 @@ class CollectTab(QWidget):
         left.addWidget(_help_label(
             "Choose which authenticated hosts and which artefacts to collect. "
             "Load authenticated hosts, tick hosts to collect from and desired artefacts, then click Start collection."))
+        sel_row = QHBoxLayout()
+        sel_row.setSpacing(4)
+        for _lbl, _t in (("All", "all"), ("Windows", "win"), ("Unix", "unix"), ("None", "none")):
+            b = QPushButton(_lbl)
+            b.setMaximumHeight(24)
+            b.setStyleSheet("QPushButton { padding: 2px 8px; font-size: 11px; }")
+            b.clicked.connect(lambda _, t=_t: self._select_hosts(t))
+            sel_row.addWidget(b)
+        sel_row.addStretch()
+        left.addLayout(sel_row)
+
+        self.host_list = QListWidget()
+        self.host_list.setStyleSheet(
+            "QListWidget::item { padding: 0px 2px; }"
+            "QListWidget::indicator { width: 11px; height: 11px; }"
+            "QListWidget { font-size: 11px; }")
+        left.addWidget(self.host_list, 1)
         self.host_list = QListWidget()
         self.host_list.setStyleSheet(
             "QListWidget::item { padding: 0px 2px; }"
@@ -988,6 +1005,22 @@ class CollectTab(QWidget):
                 item.setFont(font)
             self.host_list.addItem(item)
 
+    def _select_hosts(self, target):
+        for i in range(self.host_list.count()):
+            item = self.host_list.item(i)
+            host = next((h for h in self.state.hosts if h.ip == item.data(Qt.UserRole)), None)
+            if target == "all":
+                check = True
+            elif target == "none":
+                check = False
+            elif target == "win":
+                check = host is not None and host.actual_os is OSFamily.WINDOWS
+            elif target == "unix":
+                check = host is not None and host.actual_os is OSFamily.UNIX
+            else:
+                check = item.checkState() == Qt.Checked
+            item.setCheckState(Qt.Checked if check else Qt.Unchecked)
+
     def on_collect(self):
         chosen_ips = {self.host_list.item(i).data(Qt.UserRole)
                       for i in range(self.host_list.count())
@@ -1084,6 +1117,24 @@ class LauncherTab(QWidget):
         left.addWidget(_help_label(
             "Run external tools on the selected hosts. "
             "This is separate from forensic collection (3a · Collect) — use it to deploy or run tooling."))
+
+        sel_row = QHBoxLayout()
+        sel_row.setSpacing(4)
+        for _lbl, _t in (("All", "all"), ("Windows", "win"), ("Unix", "unix"), ("None", "none")):
+            b = QPushButton(_lbl)
+            b.setMaximumHeight(24)
+            b.setStyleSheet("QPushButton { padding: 2px 8px; font-size: 11px; }")
+            b.clicked.connect(lambda _, t=_t: self._select_hosts(t))
+            sel_row.addWidget(b)
+        sel_row.addStretch()
+        left.addLayout(sel_row)
+
+        self.host_list = QListWidget()
+        self.host_list.setStyleSheet(
+            "QListWidget::item { padding: 0px 2px; }"
+            "QListWidget::indicator { width: 11px; height: 11px; }"
+            "QListWidget { font-size: 11px; }")
+        left.addWidget(self.host_list, 1)
         self.host_list = QListWidget()
         self.host_list.setStyleSheet(
             "QListWidget::item { padding: 0px 2px; }"
@@ -1457,6 +1508,22 @@ class LauncherTab(QWidget):
                 font.setBold(True)
                 item.setFont(font)
             self.host_list.addItem(item)
+
+    def _select_hosts(self, target):
+        for i in range(self.host_list.count()):
+            item = self.host_list.item(i)
+            host = next((h for h in self.state.hosts if h.ip == item.data(Qt.UserRole)), None)
+            if target == "all":
+                check = True
+            elif target == "none":
+                check = False
+            elif target == "win":
+                check = host is not None and host.actual_os is OSFamily.WINDOWS
+            elif target == "unix":
+                check = host is not None and host.actual_os is OSFamily.UNIX
+            else:
+                check = item.checkState() == Qt.Checked
+            item.setCheckState(Qt.Checked if check else Qt.Unchecked)
 
     def _cl_refresh_fields(self):
         is_win = self.cl_os.currentText() == "Windows"
