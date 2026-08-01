@@ -5,13 +5,12 @@ from __future__ import annotations
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QMessageBox,
-    QComboBox, QListWidget, QListWidgetItem, QHeaderView, QCheckBox
+    QComboBox, QListWidget, QListWidgetItem, QHeaderView, QCheckBox, QScrollArea
 )
 from PySide6.QtCore import QThread, Signal, QObject, Qt, QSize
 from PySide6.QtGui import QColor, QIcon
 
 from core.discovery import expand_targets, discover
-from core.models import OSFamily
 
 from core.credentials import CredentialStore
 from core.models import OSFamily, CredentialProfile, CredKind, AccessState
@@ -1611,9 +1610,6 @@ class MainWindow(QMainWindow):
             "1."
             )
 
-    def open_settings(self):
-        self.settings_win = SettingsDialog(self.state)
-        self.settings_win.show()
 
 class LogTab(QWidget):
     def __init__(self):
