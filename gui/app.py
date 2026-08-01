@@ -1985,7 +1985,7 @@ class AboutDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("About Remote Triage Collector")
+        self.setWindowTitle("About Remote KingfishIR")
         self.resize(860, 420)
         layout = QVBoxLayout(self)
 
@@ -2109,7 +2109,7 @@ class SettingsDialog(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Remote Triage Collector")
+        self.setWindowTitle("KingfishIR")
         self.resize(1500, 750)
         self.state = AppState()
 

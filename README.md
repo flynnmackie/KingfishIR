@@ -1,4 +1,4 @@
-# Remote Triage Collector
+# KingfishIR
 
 A cross-platform, **agentless** digital-forensic triage tool. A single Python
 controller discovers hosts on a network, verifies remote access using credential
@@ -133,11 +133,11 @@ configured via their paths in the in-app **Settings** dialog.
 
 ## Building a standalone executable
 
-The tool can be packaged with PyInstaller (see `RemoteTriageCollector.spec`):
+The tool can be packaged with PyInstaller (see `KingfishIR.spec`):
 
 ```bash
 pip install pyinstaller
-pyinstaller RemoteTriageCollector.spec
+pyinstaller KingfishIR.spec
 ```
 
 ## Academic context
