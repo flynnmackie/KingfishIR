@@ -115,7 +115,7 @@ class DiscoveryTab(QWidget):
         row = QHBoxLayout()
         row.addWidget(QLabel("Target(s):"))
         self.target_input = QLineEdit()
-        self.target_input.setPlaceholderText("10.10.10.100-103   ·   192.168.1.0/24   ·   single IP")
+        self.target_input.setPlaceholderText("Enter addresses to scan. Eg: 192.168.1.1,10,133  ·  10.10.10.1-20  ·  192.168.1.0/24  ·  comma-separate")
         row.addWidget(self.target_input)
         self.scan_btn = QPushButton("Scan")
         self.scan_btn.clicked.connect(self.on_scan)
@@ -787,13 +787,6 @@ class CollectTab(QWidget):
             sel_row.addWidget(b)
         sel_row.addStretch()
         left.addLayout(sel_row)
-
-        self.host_list = QListWidget()
-        self.host_list.setStyleSheet(
-            "QListWidget::item { padding: 0px 2px; }"
-            "QListWidget::indicator { width: 11px; height: 11px; }"
-            "QListWidget { font-size: 11px; }")
-        left.addWidget(self.host_list, 1)
         self.host_list = QListWidget()
         self.host_list.setStyleSheet(
             "QListWidget::item { padding: 0px 2px; }"
@@ -1129,12 +1122,6 @@ class LauncherTab(QWidget):
         sel_row.addStretch()
         left.addLayout(sel_row)
 
-        self.host_list = QListWidget()
-        self.host_list.setStyleSheet(
-            "QListWidget::item { padding: 0px 2px; }"
-            "QListWidget::indicator { width: 11px; height: 11px; }"
-            "QListWidget { font-size: 11px; }")
-        left.addWidget(self.host_list, 1)
         self.host_list = QListWidget()
         self.host_list.setStyleSheet(
             "QListWidget::item { padding: 0px 2px; }"

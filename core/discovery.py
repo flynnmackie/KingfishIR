@@ -60,49 +60,89 @@ def os_from_ttl(ttl: int | None) -> OSFamily:
         return OSFamily.WINDOWS
     return OSFamily.UNKNOWN  # ~255 => likely network gear
 
-
-def expand_targets(spec: str) -> list[str]:
-    """Expand '192.168.1.0/24', '192.168.1.10-50', or a single IP to a list.
-
-    Raises ValueError with a readable message if the input is malformed.
-    """
+def _expand_one(spec: str) -> list[str]:
+    """Expand a single spec: CIDR, last-octet dash range, or single IP."""
     spec = spec.strip()
     if not spec:
-        raise ValueError("No target entered.")
-
+        raise ValueError("Empty target.")
     try:
-        # Case 1 - CIDR, e.g. "192.168.1.0/24"
+        # CIDR
         if "/" in spec:
             network = ipaddress.ip_network(spec, strict=False)
             return [str(ip) for ip in network.hosts()]
-
-        # Case 2 - last-octet dash range, e.g. "192.168.1.10-20"
+        # last-octet dash range, e.g. 192.168.1.10-20
         if "-" in spec:
             base, end_str = spec.split("-", 1)
             octets = base.split(".")
             if len(octets) != 4:
                 raise ValueError("Range must look like 192.168.1.10-20")
-            start = int(octets[3])
-            end = int(end_str)
+            start = int(octets[3]); end = int(end_str)
             if not (0 <= start <= 255 and 0 <= end <= 255):
                 raise ValueError("Octets must be 0-255")
             if end < start:
                 raise ValueError("Range end is before its start")
             prefix = ".".join(octets[:3])
-            # Validate the base is a real IP by constructing the first address.
             ipaddress.ip_address(f"{prefix}.{start}")
             return [f"{prefix}.{octet}" for octet in range(start, end + 1)]
-
-        # Case 3 - single IP: validate it's genuinely an IP address.
+        # single IP
         ipaddress.ip_address(spec)
         return [spec]
-
     except ValueError:
-        raise                       # re-raise our own clear messages as-is
+        raise
     except Exception:
         raise ValueError(f"'{spec}' is not a valid IP, range, or CIDR.")
 
 
+def expand_targets(spec: str) -> list[str]:
+    """Expand a target string into a deduplicated list of IPs.
+
+    Supports, separated by commas:
+      - single IP           192.168.1.5
+      - dash range          192.168.1.10-20
+      - CIDR                192.168.1.0/24
+      - last-octet commas   192.168.1.1,10,133   (same /24, those last octets)
+      - multiple specs      192.168.1.1-15, 10.10.10.100, 192.168.2.0/24
+    """
+    spec = spec.strip()
+    if not spec:
+        raise ValueError("No target entered.")
+
+    ips: list[str] = []
+    current_prefix = None       # remembers the /24 for bare last-octet numbers
+
+    for piece in spec.split(","):
+        piece = piece.strip()
+        if not piece:
+            continue
+
+        # a bare number (no dots) = last-octet continuation of the previous prefix
+        if piece.isdigit():
+            if current_prefix is None:
+                raise ValueError(f"'{piece}' has no preceding IP for its last octet.")
+            octet = int(piece)
+            if not (0 <= octet <= 255):
+                raise ValueError("Octets must be 0-255")
+            ips.append(f"{current_prefix}.{octet}")
+            continue
+
+        # otherwise a full spec - expand it, and remember its /24 prefix for any
+        # bare last-octet numbers that follow
+        expanded = _expand_one(piece)
+        ips.extend(expanded)
+        first_octets = piece.replace("/", "-").split("-")[0].split(".")
+        if len(first_octets) == 4:
+            current_prefix = ".".join(first_octets[:3])
+
+    # dedupe, preserve order
+    seen = set()
+    result = []
+    for ip in ips:
+        if ip not in seen:
+            seen.add(ip)
+            result.append(ip)
+    if not result:
+        raise ValueError("No valid targets found.")
+    return result
 
 def discover(targets: Iterable[str], progress=None, should_stop=None, on_start=None) -> list[Host]:
     """Probe each target and return Host objects with liveness + OS guess.
