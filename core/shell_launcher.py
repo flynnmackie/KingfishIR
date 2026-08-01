@@ -1,8 +1,9 @@
 """Launch an interactive shell to a host in a new terminal window.
 
-Windows (WinRM/PSSession): auto-adds the host to TrustedHosts (shown, elevates
-if needed) and auto-authenticates via a PSCredential built from a password passed
-in the environment (not the command line - avoids process-list leakage).
+Windows (WinRM/PSSession): adds the host to TrustedHosts (elevated, UAC prompt)
+as its own step, then launches a PSSession that auto-authenticates via a
+PSCredential built from a password passed in the environment (not the command
+line - avoids process-list leakage).
 Unix (SSH): launches ssh; the user types their password (ssh resists non-
 interactive password auth by design).
 Assumes a Windows controller.
@@ -20,8 +21,8 @@ def open_shell(host, profile, audit=None):
     if profile.domain:
         user = f"{profile.domain}\\{user}"
 
+    # ================= UNIX / SSH =================
     if host.actual_os is OSFamily.UNIX:
-        # ssh in a new window; ssh prompts for the password (by design)
         cmd = f'start "SSH {host.ip}" cmd /k ssh {user}@{host.ip}'
         try:
             subprocess.Popen(cmd, shell=True)
@@ -34,32 +35,37 @@ def open_shell(host, profile, audit=None):
                 audit.log(host.ip, "shell", outcome="error", detail=str(exc))
             return False, str(exc)
 
-    # ---- Windows: TrustedHosts add (shown+elevated) + env-var credential ----
-    # Build a PowerShell script that: shows & adds TrustedHosts (self-elevating if
-    # needed), then builds a credential from the env-var password and connects.
+    # ================= WINDOWS / WinRM (PSSession) =================
+    # Step 1: add the host to TrustedHosts, elevated (its own process so the
+    # nested quoting stays simple). -Verb RunAs triggers a UAC prompt; -Wait so
+    # it completes before we try to connect.
+    th_cmd = (f'Set-Item WSMan:\\localhost\\Client\\TrustedHosts '
+              f'-Value \\"{host.ip}\\" -Concatenate -Force')
+    try:
+        subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             f"Start-Process powershell -Verb RunAs -Wait "
+             f"-ArgumentList '-NoProfile','-Command','{th_cmd}'"],
+            check=False)
+        if audit:
+            audit.log(host.ip, "trustedhosts", outcome="ok",
+                      detail=f"added {host.ip} to TrustedHosts")
+    except Exception as exc:
+        if audit:
+            audit.log(host.ip, "trustedhosts", outcome="error", detail=str(exc))
+
+    # Step 2: launch the interactive PSSession window. The password is passed via
+    # the child process ENVIRONMENT (not the command line), then scrubbed.
     pw_env = "RTC_SHELL_PW"
     ps_lines = [
-        "$ErrorActionPreference = 'Stop'",
-        # show what we're about to do
-        f"Write-Host 'Adding {host.ip} to TrustedHosts...' -ForegroundColor Cyan",
-        # test if we can write TrustedHosts; if not, self-elevate just for that step
-        "try {",
-        f"  Set-Item WSMan:\\localhost\\Client\\TrustedHosts -Value '{host.ip}' -Concatenate -Force",
-        "} catch {",
-        "  Write-Host 'Elevating to update TrustedHosts...' -ForegroundColor Yellow",
-        f"  Start-Process powershell -Verb RunAs -Wait -ArgumentList '-Command',"
-        f"\"Set-Item WSMan:\\localhost\\Client\\TrustedHosts -Value '{host.ip}' -Concatenate -Force\"",
-        "}",
-        # build credential from the env-var password (not the command line)
         f"$pw = ConvertTo-SecureString $env:{pw_env} -AsPlainText -Force",
         f"$cred = New-Object System.Management.Automation.PSCredential('{user}', $pw)",
-        f"Remove-Item Env:\\{pw_env} -ErrorAction SilentlyContinue",   # scrub the env var
-        f"Write-Host 'Connecting to {host.ip}...' -ForegroundColor Cyan",
+        f"Remove-Item Env:\\{pw_env} -ErrorAction SilentlyContinue",
+        f"Write-Host 'Connecting to {host.ip} as {user}...' -ForegroundColor Cyan",
         f"Enter-PSSession -ComputerName {host.ip} -Credential $cred -Authentication Negotiate",
     ]
     ps_script = "; ".join(ps_lines)
 
-    # pass the password via the child process ENVIRONMENT, not the command line
     child_env = dict(os.environ)
     child_env[pw_env] = profile.secret or ""
 
@@ -68,7 +74,7 @@ def open_shell(host, profile, audit=None):
         subprocess.Popen(cmd, shell=True, env=child_env)
         if audit:
             audit.log(host.ip, "shell opened", outcome="ok",
-                      detail=f"interactive PSSession launched; {host.ip} added to TrustedHosts")
+                      detail=f"interactive PSSession launched; {host.ip} in TrustedHosts")
         return True, "PSSession shell launched"
     except Exception as exc:
         if audit:
