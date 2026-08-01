@@ -1285,7 +1285,7 @@ class LauncherTab(QWidget):
         self.cl_smb_note = _help_label("Files over ~200MB use SMB (port 445 must be reachable on the target).")
         form_layout.addWidget(self.cl_smb_note)
 
-        add_btn = QPushButton("+ Add launcher")
+        add_btn = QPushButton("+ Add/Update launcher")
         add_btn.clicked.connect(self._add_custom_launcher)
         form_layout.addWidget(add_btn)
 
@@ -1588,7 +1588,13 @@ class LauncherTab(QWidget):
         }
         from core.config import load_launchers, save_launchers
         launchers = load_launchers()
-        launchers.append(launcher)
+        # update in place if a launcher with this name exists, else append
+        for i, existing in enumerate(launchers):
+            if existing.get("name") == name:
+                launchers[i] = launcher
+                break
+        else:
+            launchers.append(launcher)
         save_launchers(launchers)
         self.state.config["launchers"] = launchers
         self._load_custom_launchers()
@@ -1609,7 +1615,6 @@ class LauncherTab(QWidget):
                 target = "dir" if lc.get("push_dir") else "file"
                 exec_v = (lc.get("command") or "yes") if lc.get("execute") else "no"
                 parts = [kv("Push", f"{target}: {os.path.basename(lc.get('exe',''))}"),
-                        kv("File", os.path.basename(lc.get("exe", ""))),
                          kv("Path", lc.get("work_path") or "home"),
                          kv("Exec", exec_v),
                          kv("Delete", "yes" if lc.get("delete_after") else "no")]
@@ -1632,7 +1637,6 @@ class LauncherTab(QWidget):
                 "border-radius: 3px; background-color: #4a4a4a; }"
                 "QCheckBox::indicator:checked { background-color: #1b5e20; border: 1px solid #43a047; }")
             self._custom_checks[lc["name"]] = cb
-            self._custom_checks[lc["name"]] = cb
             row_lay.addWidget(cb)
             lbl = QLabel(html)
             lbl.setTextFormat(Qt.RichText)
@@ -1646,6 +1650,15 @@ class LauncherTab(QWidget):
                 "QPushButton:hover { background-color: #c44; }")
             del_btn.clicked.connect(lambda _, n=lc["name"]: self._delete_custom_launcher(n))
             row_lay.addWidget(del_btn)
+
+            edit_btn = QPushButton("Edit")
+            edit_btn.setMaximumWidth(48)
+            edit_btn.setStyleSheet(
+                "QPushButton { background-color: #37474f; color: white; padding: 1px 6px; "
+                "font-size: 11px; border-radius: 3px; }"
+                "QPushButton:hover { background-color: #455a64; }")
+            edit_btn.clicked.connect(lambda _, n=lc["name"]: self._edit_custom_launcher(n))
+            row_lay.addWidget(edit_btn)
 
             item = QListWidgetItem()
             hint = row.sizeHint()
@@ -1661,6 +1674,26 @@ class LauncherTab(QWidget):
         save_launchers(launchers)
         self.state.config["launchers"] = launchers      # keep in-memory config synced
         self._load_custom_launchers()
+
+    def _edit_custom_launcher(self, name):
+        from core.config import load_launchers
+        lc = next((x for x in load_launchers() if x.get("name") == name), None)
+        if not lc:
+            return
+        self.cl_name.setText(lc.get("name", ""))
+        self.cl_os.setCurrentText("Windows" if lc.get("os") == "windows" else "Unix")
+        self.cl_shell.setCurrentText("CMD" if lc.get("shell") == "cmd" else "PowerShell")
+        mode_disp = {"command": "Run command", "push": "Push file", "pull": "Pull file"}
+        self.cl_mode.setCurrentText(mode_disp.get(lc.get("mode"), "Run command"))
+        self.cl_cmd.setText(lc.get("command", ""))
+        self.cl_file.setText(lc.get("exe", ""))
+        self.cl_rpath.setText(lc.get("remote_path", ""))
+        self.cl_work.setText(lc.get("work_path", ""))
+        self.cl_pushdir.setChecked(lc.get("push_dir", False))
+        self.cl_exec.setChecked(lc.get("execute", False))
+        self.cl_del.setChecked(lc.get("delete_after", False))
+        self._cl_refresh_fields()
+        self.cl_name.setFocus()
    
 class SettingsDialog(QWidget):
     """Standalone settings window for external-tool paths."""

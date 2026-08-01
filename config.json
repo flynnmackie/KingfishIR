@@ -39,12 +39,13 @@
       "os": "windows",
       "shell": "powershell",
       "mode": "push",
-      "command": "-accepteula -nobanner -a * -c",
+      "command": "-accepteula -nobanner -a *",
       "exe": "D:/autorunsc.exe",
       "execute": true,
       "delete_after": true,
       "remote_path": "",
-      "work_path": ""
+      "work_path": "",
+      "push_dir": false
     },
     {
       "name": "Pull Dir",
