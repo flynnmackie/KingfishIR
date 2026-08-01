@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QMessageBox,
     QComboBox, QListWidget, QListWidgetItem, QHeaderView, QCheckBox, QScrollArea,
-    QDialog, QTextEdit
+    QDialog, QTextEdit, QTextBrowser
 )
 from PySide6.QtCore import QThread, Signal, QObject, Qt, QSize
 from PySide6.QtGui import QColor, QIcon
@@ -1911,67 +1911,71 @@ class AboutDialog(QDialog):
 
     SECTIONS = {
         "Overview": (
-            "Remote Triage Collector\n\n"
+            "<b>Remote Triage Collector</b><br><br>"
             "A cross-platform, agentless digital-forensic triage tool. It discovers "
             "hosts on a network, verifies remote access using credential profiles, and "
             "collects artefacts from Windows (PS-Remote) and Unix (SSH), no agent required."
-            "\n\n"
-            "Workflow moves left-to-right: Discovery → Access → Collect (or Launch)"
-            "\n"
-            "Every action is recorded in the Log.\n\n"
-            "GitHub: <github link here>"
+            "<br><br>"
+            "Workflow moves left-to-right: Discovery → Access → Collect (or Launch)<br>"
+            "Every action is recorded in the Log.<br><br>"
+            "GitHub: <a href='https://github.com/flynnmackie/Python-Triage-Tool'>"
+            "github.com/flynnmackie/Python-Triage-Tool</a>"
         ),
         "1 · Discovery": (
-            "DISCOVERY — Find hosts on the network.\n\n"
-            "Enter a target specification and scan for live hosts. Targets can be:\n"
-            "  • Single IP (192.168.1.50)\n"
-            "  • IP Range (192.168.1.10-20)\n"
-            "  • CIDR block (192.168.1.0/24)\n"
-            "  • Octet lists (192.168.1.1,10,133)\n"
+            "<b>DISCOVERY — Find hosts on the network.</b><br><br>"
+            "Enter a target specification and scan for live hosts. Targets can be:<br>"
+            "&nbsp;&nbsp;• Single IP (192.168.1.50)<br>"
+            "&nbsp;&nbsp;• IP Range (192.168.1.10-20)<br>"
+            "&nbsp;&nbsp;• CIDR block (192.168.1.0/24)<br>"
+            "&nbsp;&nbsp;• Octet lists (192.168.1.1,10,133)<br><br>"
             "Each discovered host is fingerprinted for its likely OS (Windows/Unix) from "
             "TTL and open ports. The host list persists between sessions, unless cleared."
         ),
         "2 · Access": (
-            "ACCESS — Assign credentials and verify you can reach each host.\n\n"
+            "<b>ACCESS — Assign credentials and verify you can reach each host.</b><br><br>"
             "Create credential profiles (username, password, domain, sudo) on the right, "
             "then assign a profile to each host via its dropdown. Click Verify access to "
-            "test authentication over WinRM (Windows) or SSH (Unix).\n\n"
-            "Passwords are never written to disk and must be re-inputted everytime the program opens. "
-            "Persisted hosts reload as UNVERIFIED and must be re-verified each session "
-            "\n\n"
-            "Once a host authenticates, clicking the Shell button opens an interactive session to it."
+            "test authentication over WinRM (Windows) or SSH (Unix).<br><br>"
+            "Passwords are never written to disk and must be re-inputted every time the "
+            "program opens. Persisted hosts reload as UNVERIFIED and must be re-verified "
+            "each session.<br><br>"
+            "Once a host authenticates, clicking the Shell button opens an interactive "
+            "session to it."
         ),
         "3a · Collect": (
-            "COLLECT — Gather forensic artefacts.\n\n"
+            "<b>COLLECT — Gather forensic artefacts.</b><br><br>"
             "Tick the verified hosts and the artefacts to collect, then Start collection. "
             "Artefacts are pulled over the native protocol, hashed at source and after "
-            "transfer to verify integrity, and saved under collected/<run>/<host>/.\n\n"
-            "Also supports external tools: KAPE, UAC, and WinPmem (over SMB) with all output pulled back to local machine\n\n"
-            "KAPE - runs on target with default command: kape.exe--target !SANS_Triage --module !EZParser\n\n"
-            "UAC - runs on target with default command: uac -p ir_triage\n\n"
-            "Tool paths are set in Settings.\n\n"
-            
+            "transfer to verify integrity, and saved under collected/&lt;run&gt;/&lt;host&gt;/.<br><br>"
+            "Also supports external tools: KAPE, UAC, and WinPmem (over SMB), with all "
+            "output pulled back to the local machine.<br><br>"
+            "<b>KAPE</b> — runs on target with default command:<br>"
+            "<code>kape.exe --target !SANS_Triage --module !EZParser</code><br><br>"
+            "<b>UAC</b> — runs on target with default command:<br>"
+            "<code>uac -p ir_triage</code><br><br>"
+            "Tool paths are set in Settings."
         ),
         "3b · Launch": (
-            "LAUNCH — Deploy or run tooling on hosts (separate from forensic collection).\n\n"
-            "Presets deploy Sysmon or a Velociraptor agent, just provide the files\n\n"
-            "Custom launchers let you define your own actions:\n"
-            "  • Run a command and capture its output\n"
-            "  • Push a file or directory (and optionally execute it)\n"
-            "  • Pull a file or directory back (archived automatically)\n\n"
+            "<b>LAUNCH — Deploy or run tooling on hosts (separate from forensic collection).</b><br><br>"
+            "Presets deploy Sysmon or a Velociraptor agent — just provide the files.<br><br>"
+            "Custom launchers let you define your own actions:<br>"
+            "&nbsp;&nbsp;• Run a command and capture its output<br>"
+            "&nbsp;&nbsp;• Push a file or directory (and optionally execute it)<br>"
+            "&nbsp;&nbsp;• Pull a file or directory back (archived automatically)<br><br>"
             "Custom launchers are saved, editable, and can be duplicated. Output goes to a "
             "separate launched/ directory."
         ),
         "Log": (
-            "LOG — The chain-of-custody record.\n\n"
-            "Every action:\n"
-            "- discovery\n"
-            "- verification\n"
-            "- collection\n"
-            "- artefact hashing\n"
-            "- launcher activity\n"
-            "- interactive shell sessions\n\n"
-            "is timestamped and recorded here with source and post-transfer hashes for collected artefacts.\n\n"
+            "<b>LOG — The chain-of-custody record.</b><br><br>"
+            "Every action:<br>"
+            "&nbsp;&nbsp;- discovery<br>"
+            "&nbsp;&nbsp;- verification<br>"
+            "&nbsp;&nbsp;- collection<br>"
+            "&nbsp;&nbsp;- artefact hashing<br>"
+            "&nbsp;&nbsp;- launcher activity<br>"
+            "&nbsp;&nbsp;- interactive shell sessions<br><br>"
+            "is timestamped and recorded here, with source and post-transfer hashes for "
+            "collected artefacts.<br><br>"
             "Rows are colour-coded by type (collection, launch, shell, errors). The log is "
             "also written to CSV files for an auditable record outside the application."
         ),
@@ -1996,8 +2000,8 @@ class AboutDialog(QDialog):
         layout.addLayout(toggle_row)
 
         # text area
-        self.text = QTextEdit()
-        self.text.setReadOnly(True)
+        self.text = QTextBrowser()
+        self.text.setOpenExternalLinks(True)
         self.text.setStyleSheet("QTextEdit { font-size: 13px; padding: 8px; }")
         layout.addWidget(self.text, 1)
 
@@ -2008,7 +2012,7 @@ class AboutDialog(QDialog):
         self._show_section("Overview")
 
     def _show_section(self, label):
-        self.text.setPlainText(self.SECTIONS[label])
+        self.text.setHtml(self.SECTIONS[label])
         for name, btn in self._buttons.items():
             active = name == label
             btn.setChecked(active)
