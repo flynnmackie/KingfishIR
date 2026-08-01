@@ -282,7 +282,25 @@ def run_custom_launcher(host, transport, launcher, audit, out_root, run_folder):
                           detail=f"could not read {fetch_path} (archive may have failed)")
                 return False
 
-            size_mb = int(size_out) // (1024 * 1024)
+
+            size_bytes = int(size_out)
+            size_mb = size_bytes // (1024 * 1024)
+
+            # empty files break WinRM's fetch (crypto transform on null input) -
+            # create the empty local file directly instead of fetching
+            if size_bytes == 0:
+                fname = (fetch_path.replace("\\", "/").rstrip("/").split("/")[-1]) or "pulled"
+                (dest_dir / fname).write_bytes(b"")
+                if cleanup_remote:
+                    try:
+                        transport.delete_remote(cleanup_remote)
+                    except Exception:
+                        pass
+                audit.log(ip, "launch collect", artefact=name, outcome="ok",
+                          detail=f"retrieved empty file -> launched/{name}/{fname}")
+                return True
+
+            
             if size_mb > limit_mb:
                 audit.log(ip, "launch pull", artefact=name, outcome="error",
                           detail=f"{size_mb}MB exceeds {limit_mb}MB limit - skipped")
