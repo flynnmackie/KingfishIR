@@ -32,5 +32,19 @@
   "sysmon_exe": "D:/Sysmon/Sysmon64.exe",
   "sysmon_config": "D:/Sysmon/sysmonconfig.xml",
   "velo_msi": "D:/Org__root__velociraptor-v0.75.6-windows-amd64.msi",
-  "velo_deb": "D:/velociraptor_client_0.75.6_amd64.deb"
+  "velo_deb": "D:/velociraptor_client_0.75.6_amd64.deb",
+  "launchers": [
+    {
+      "name": "3rdtest",
+      "os": "windows",
+      "shell": "cmd",
+      "mode": "push",
+      "command": "echo lol : exit",
+      "exe": "C:/Users/Clancon/Documents/buildLog.txt",
+      "execute": true,
+      "delete_after": false,
+      "remote_path": "",
+      "work_path": "C:\\"
+    }
+  ]
 }

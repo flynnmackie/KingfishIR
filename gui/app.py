@@ -1166,7 +1166,7 @@ class LauncherTab(QWidget):
         # --- optional work/destination path (all modes) ---
         self.cl_work_row = QHBoxLayout()
         wlbl = QLabel("Path (opt):"); wlbl.setFixedWidth(95); self.cl_work_row.addWidget(wlbl)
-        self.cl_work = QLineEdit(); self.cl_work.setPlaceholderText("blank = user's home directory")
+        self.cl_work = QLineEdit(); self.cl_work.setPlaceholderText("Defaults to user's home directory")
         self.cl_work_row.addWidget(self.cl_work)
         self.cl_work_w = QWidget(); self.cl_work_w.setLayout(self.cl_work_row)
         custom_layout.addWidget(self.cl_work_w)
@@ -1413,7 +1413,6 @@ class LauncherTab(QWidget):
             "execute": self.cl_exec.isChecked(),
             "delete_after": self.cl_del.isChecked(),
             "remote_path": self.cl_rpath.text().strip(),
-            "size_limit_mb": self.cl_size.text().strip() or "100",
             "work_path": self.cl_work.text().strip(),
         }
         from core.config import load_launchers, save_launchers
