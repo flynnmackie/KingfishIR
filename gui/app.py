@@ -1330,10 +1330,7 @@ class LauncherTab(QWidget):
                     self.cl_file.setText(path)
 
     def _cl_pushdir_toggle(self):
-        is_dir = self.cl_pushdir.isChecked()
-        # directory push can't execute - hide execute + command
-        self.cl_exec.setVisible(not is_dir)
-        if is_dir:
+        if self.cl_pushdir.isChecked():
             self.cl_exec.setChecked(False)
         self._cl_refresh_fields()
 
@@ -1460,12 +1457,13 @@ class LauncherTab(QWidget):
         is_run = mode == "Run command"
         exec_ticked = self.cl_exec.isChecked()
         self.cl_pushdir.setVisible(is_push)
-        cmd_runs = is_run or (is_push and exec_ticked)
+        is_dir_push = is_push and self.cl_pushdir.isChecked()
+        cmd_runs = is_run or (is_push and exec_ticked and not is_dir_push)
 
         # push fields
         self.cl_file_w.setVisible(is_push)
-        self.cl_exec.setVisible(is_push)
-        self.cl_del.setVisible(is_push and exec_ticked)
+        self.cl_exec.setVisible(is_push and not is_dir_push)
+        self.cl_del.setVisible(is_push and exec_ticked and not is_dir_push)
 
         # command: run mode always; push mode only when execute ticked
         self.cl_cmd_w.setVisible(cmd_runs)
