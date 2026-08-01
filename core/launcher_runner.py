@@ -186,22 +186,78 @@ def run_custom_launcher(host, transport, launcher, audit, out_root, run_folder):
                       detail=f"captured stdout -> launched/{name}/{name}_stdout.txt")
             return True
 
-        # ================= PUSH FILE =================
+        # ================= PUSH FILE / DIRECTORY =================
         elif mode == "push":
-            local_file = launcher.get("exe", "")
-            fname = os.path.basename(local_file)
+            local_path = launcher.get("exe", "")
+            is_dir = launcher.get("push_dir", False)
             transport.make_dir(work_path)
+
+            # ---------- DIRECTORY: zip locally -> push -> extract on target ----------
+            if is_dir:
+                import shutil, tempfile
+                base = os.path.basename(local_path.rstrip("/\\")) or "pushed_dir"
+                tmp_zip = os.path.join(tempfile.gettempdir(), f"rtc_push_{base}.zip")
+                audit.log(ip, "launch archive", artefact=name, outcome="ok",
+                          detail=f"zipping {local_path} locally")
+                # make_archive appends .zip; strip it from the base we pass
+                shutil.make_archive(tmp_zip[:-4], "zip", local_path)
+
+                if is_windows:
+                    remote_zip = rf"{work_path}\{base}.zip"
+                    remote_dest = rf"{work_path}\{base}"
+                else:
+                    remote_zip = f"{work_path}/{base}.zip"
+                    remote_dest = f"{work_path}/{base}"
+
+                audit.log(ip, "launch push", artefact=name, outcome="ok",
+                          detail=f"pushing directory archive -> {remote_zip}")
+                transport.put_file(tmp_zip, remote_zip)
+
+                audit.log(ip, "launch extract", artefact=name, outcome="ok",
+                          detail=f"extracting -> {remote_dest}")
+                if is_windows:
+                    transport.run_command(
+                        f"powershell -Command \"Expand-Archive -Path '{remote_zip}' "
+                        f"-DestinationPath '{remote_dest}' -Force\"")
+                else:
+                    transport.run_command(f"mkdir -p '{remote_dest}'", use_sudo=use_sudo)
+                    transport.run_command(
+                        f"unzip -o '{remote_zip}' -d '{remote_dest}'", use_sudo=use_sudo)
+
+                # remove the pushed zip from target (keep the extracted content)
+                try:
+                    transport.delete_remote(remote_zip)
+                except Exception:
+                    pass
+                try:
+                    os.unlink(tmp_zip)      # local temp
+                except Exception:
+                    pass
+
+                if launcher.get("delete_after"):
+                    try:
+                        transport.remove_dir(remote_dest)
+                        audit.log(ip, "launch cleanup", artefact=name, outcome="ok",
+                                  detail=f"removed {remote_dest}")
+                    except Exception as exc:
+                        audit.log(ip, "launch cleanup", artefact=name, outcome="error",
+                                  detail=f"could not remove {remote_dest}: {exc}")
+
+                audit.log(ip, "launch collect", artefact=name, outcome="ok",
+                          detail=f"directory deployed -> {remote_dest}")
+                return True
+
+            # ---------- FILE: push, optionally execute ----------
+            fname = os.path.basename(local_path)
             remote_file = (rf"{work_path}\{fname}" if is_windows
                            else f"{work_path}/{fname}")
             audit.log(ip, "launch push", artefact=name, outcome="ok",
                       detail=f"pushing {fname} -> {remote_file}")
-            transport.put_file(local_file, remote_file)
+            transport.put_file(local_path, remote_file)
 
             if launcher.get("execute"):
-                # auto-run the pushed file; command field = extra flags/args
                 extra = launcher.get("command", "").strip()
                 if is_windows and launcher.get("shell", "powershell") != "cmd":
-                    # PowerShell needs the call operator & to run a quoted exe path
                     cmd = f'& "{remote_file}" {extra}'.strip()
                 else:
                     cmd = f'"{remote_file}" {extra}'.strip()

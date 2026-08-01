@@ -1172,6 +1172,15 @@ class LauncherTab(QWidget):
         self.cl_file_w = QWidget(); self.cl_file_w.setLayout(self.cl_file_row)
         form_layout.addWidget(self.cl_file_w)
 
+        def _browse_push_target(self):
+            from PySide6.QtWidgets import QFileDialog
+            if self.cl_pushdir.isChecked():
+                path = QFileDialog.getExistingDirectory(self, "Select folder to push")
+            else:
+                path, _ = QFileDialog.getOpenFileName(self, "Select file to push")
+            if path:
+                self.cl_file.setText(path)
+
         # --- Push: path (opt) [also used by run-command mode] ---
         self.cl_work_row = QHBoxLayout()
         self.cl_work_row.setContentsMargins(0, 0, 0, 0)
@@ -1180,6 +1189,10 @@ class LauncherTab(QWidget):
         self.cl_work_row.addWidget(self.cl_work)
         self.cl_work_w = QWidget(); self.cl_work_w.setLayout(self.cl_work_row)
         form_layout.addWidget(self.cl_work_w)
+
+        self.cl_pushdir = QCheckBox("Push a directory (folder) instead of a file")
+        self.cl_pushdir.stateChanged.connect(self._cl_pushdir_toggle)
+        form_layout.addWidget(self.cl_pushdir)
 
         # --- Push: execute? ---
         self.cl_exec = QCheckBox("Execute the pushed file (captures stdout)")
@@ -1314,6 +1327,14 @@ class LauncherTab(QWidget):
         self.switch_mode("preset")      # set initial view
         layout.addLayout(right, 3)
 
+    def _cl_pushdir_toggle(self):
+        is_dir = self.cl_pushdir.isChecked()
+        # directory push can't execute - hide execute + command
+        self.cl_exec.setVisible(not is_dir)
+        if is_dir:
+            self.cl_exec.setChecked(False)
+        self._cl_refresh_fields()
+
     def _mode_toggle_style(self, active_mode):
         base = ("QPushButton { padding: 8px 16px; border: none; "
                 "background: #2b2b2b; color: #bbb; }")
@@ -1436,6 +1457,7 @@ class LauncherTab(QWidget):
         is_pull = mode == "Pull file"
         is_run = mode == "Run command"
         exec_ticked = self.cl_exec.isChecked()
+        self.cl_pushdir.setVisible(is_push)
         cmd_runs = is_run or (is_push and exec_ticked)
 
         # push fields
@@ -1476,6 +1498,7 @@ class LauncherTab(QWidget):
             "delete_after": self.cl_del.isChecked(),
             "remote_path": self.cl_rpath.text().strip(),
             "work_path": self.cl_work.text().strip(),
+            "push_dir": self.cl_pushdir.isChecked(),
         }
         from core.config import load_launchers, save_launchers
         launchers = load_launchers()
@@ -1497,8 +1520,10 @@ class LauncherTab(QWidget):
                         f"<span style='color:#9a9a9a;font-style:italic'>{v}</span>")
 
             if mode == "push":
+                target = "dir" if lc.get("push_dir") else "file"
                 exec_v = (lc.get("command") or "yes") if lc.get("execute") else "no"
-                parts = [kv("File", os.path.basename(lc.get("exe", ""))),
+                parts = [kv("Push", f"{target}: {os.path.basename(lc.get('exe',''))}"),
+                        kv("File", os.path.basename(lc.get("exe", ""))),
                          kv("Path", lc.get("work_path") or "home"),
                          kv("Exec", exec_v),
                          kv("Delete", "yes" if lc.get("delete_after") else "no")]
