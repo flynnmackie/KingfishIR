@@ -1207,7 +1207,6 @@ class LauncherTab(QWidget):
             "QPushButton:hover { background-color: #c44; }")
         self.cancel_edit_btn.clicked.connect(self._cancel_edit)
         self.cancel_edit_btn.setVisible(False)
-        self.dup_btn.setVisible(False)      # hidden until editing
         header_row.addWidget(self.cancel_edit_btn)
         self.dup_btn = QPushButton("⧉ Duplicate")
         self.dup_btn.setStyleSheet(
@@ -1432,10 +1431,12 @@ class LauncherTab(QWidget):
 
     def _duplicate_launcher(self):
         from core.config import load_launchers, save_launchers
-        base_name = self.cl_name.text().strip() or "launcher"
+        import re
+        raw = self.cl_name.text().strip() or "launcher"
+        # strip any existing " (copy)" / " (copy N)" so we don't stack them
+        base_name = re.sub(r"\s*\(copy( \d+)?\)$", "", raw)
         launchers = load_launchers()
         existing_names = {lc.get("name") for lc in launchers}
-        # find a unique name: "X (copy)", "X (copy 2)", ...
         new_name = f"{base_name} (copy)"
         n = 2
         while new_name in existing_names:
