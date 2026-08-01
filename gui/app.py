@@ -1196,9 +1196,9 @@ class LauncherTab(QWidget):
             "QListWidget { font-size: 11px; }")
         custom_layout.addWidget(self.custom_list)
 
-        add_header = QLabel("Add a custom launcher")
-        add_header.setStyleSheet("font-weight: bold; font-size: 13px; padding: 8px 0 2px 0;")
-        custom_layout.addWidget(add_header)
+        self.add_header = QLabel("Add a custom launcher")
+        self.add_header.setStyleSheet("font-weight: bold; font-size: 13px; padding: 8px 0 2px 0;")
+        custom_layout.addWidget(self.add_header)
 
         # ===== box 2: add-form in its OWN scroll area =====
         form_container = QWidget()
@@ -1599,15 +1599,19 @@ class LauncherTab(QWidget):
         self.state.config["launchers"] = launchers
         self._load_custom_launchers()
         self.cl_name.clear(); self.cl_cmd.clear(); self.cl_file.clear(); self.cl_rpath.clear()
+        self._editing_name = None
+        self.add_header.setText("Add a custom launcher")
+        self.add_header.setStyleSheet("font-weight: bold; font-size: 13px; padding: 8px 0 2px 0;")
 
     def _load_custom_launchers(self):
         from core.config import load_launchers
         self.custom_list.clear()
-        self._custom_checks = {}      # name -> QCheckBox, for reading ticked state
+        self._custom_checks = {}
+        editing = getattr(self, "_editing_name", None)
         for lc in load_launchers():
             mode = lc.get("mode", "")
 
-            def kv(k, v):    # coloured label + grey italic value
+            def kv(k, v):
                 return (f"<span style='color:#7fd0ff'>{k}=</span>"
                         f"<span style='color:#9a9a9a;font-style:italic'>{v}</span>")
 
@@ -1631,19 +1635,25 @@ class LauncherTab(QWidget):
             row = QWidget()
             row_lay = QHBoxLayout(row)
             row_lay.setContentsMargins(4, 1, 4, 1)
-            cb = QCheckBox()
-            cb.setStyleSheet(
-                "QCheckBox::indicator { width: 10px; height: 10px; border: 1px solid #6a6a6a; "
-                "border-radius: 3px; background-color: #4a4a4a; }"
-                "QCheckBox::indicator:checked { background-color: #1b5e20; border: 1px solid #43a047; }")
-            self._custom_checks[lc["name"]] = cb
-            row_lay.addWidget(cb)
-            lbl = QLabel(html)
-            lbl.setTextFormat(Qt.RichText)
-            row_lay.addWidget(lbl)
-            row_lay.addStretch()
-            del_btn = QPushButton("Delete")
-            del_btn.setMaximumWidth(60)
+            row_lay.setSpacing(4)
+
+            # --- buttons FIRST (always visible on the left) ---
+            edit_btn = QPushButton("Edit")
+            edit_btn.setFixedWidth(44)
+            if editing == lc["name"]:
+                edit_btn.setStyleSheet(
+                    "QPushButton { background-color: #1b5e20; color: white; padding: 1px 6px; "
+                    "font-size: 11px; border-radius: 3px; }")
+            else:
+                edit_btn.setStyleSheet(
+                    "QPushButton { background-color: #37474f; color: white; padding: 1px 6px; "
+                    "font-size: 11px; border-radius: 3px; }"
+                    "QPushButton:hover { background-color: #455a64; }")
+            edit_btn.clicked.connect(lambda _, n=lc["name"]: self._edit_custom_launcher(n))
+            row_lay.addWidget(edit_btn)
+
+            del_btn = QPushButton("Del")
+            del_btn.setFixedWidth(40)
             del_btn.setStyleSheet(
                 "QPushButton { background-color: #a33; color: white; padding: 1px 6px; "
                 "font-size: 11px; border-radius: 3px; }"
@@ -1651,14 +1661,19 @@ class LauncherTab(QWidget):
             del_btn.clicked.connect(lambda _, n=lc["name"]: self._delete_custom_launcher(n))
             row_lay.addWidget(del_btn)
 
-            edit_btn = QPushButton("Edit")
-            edit_btn.setMaximumWidth(48)
-            edit_btn.setStyleSheet(
-                "QPushButton { background-color: #37474f; color: white; padding: 1px 6px; "
-                "font-size: 11px; border-radius: 3px; }"
-                "QPushButton:hover { background-color: #455a64; }")
-            edit_btn.clicked.connect(lambda _, n=lc["name"]: self._edit_custom_launcher(n))
-            row_lay.addWidget(edit_btn)
+            # --- checkbox + label ---
+            cb = QCheckBox()
+            cb.setStyleSheet(
+                "QCheckBox::indicator { width: 10px; height: 10px; border: 1px solid #6a6a6a; "
+                "border-radius: 3px; background-color: #4a4a4a; }"
+                "QCheckBox::indicator:checked { background-color: #1b5e20; border: 1px solid #43a047; }")
+            self._custom_checks[lc["name"]] = cb
+            row_lay.addWidget(cb)
+
+            lbl = QLabel(html)
+            lbl.setTextFormat(Qt.RichText)
+            row_lay.addWidget(lbl)
+            row_lay.addStretch()
 
             item = QListWidgetItem()
             hint = row.sizeHint()
@@ -1667,7 +1682,7 @@ class LauncherTab(QWidget):
             item.setData(Qt.UserRole, lc["name"])
             self.custom_list.addItem(item)
             self.custom_list.setItemWidget(item, row)
-
+    
     def _delete_custom_launcher(self, name):
         from core.config import load_launchers, save_launchers
         launchers = [lc for lc in load_launchers() if lc.get("name") != name]
@@ -1680,6 +1695,7 @@ class LauncherTab(QWidget):
         lc = next((x for x in load_launchers() if x.get("name") == name), None)
         if not lc:
             return
+        self._editing_name = name
         self.cl_name.setText(lc.get("name", ""))
         self.cl_os.setCurrentText("Windows" if lc.get("os") == "windows" else "Unix")
         self.cl_shell.setCurrentText("CMD" if lc.get("shell") == "cmd" else "PowerShell")
@@ -1692,9 +1708,12 @@ class LauncherTab(QWidget):
         self.cl_pushdir.setChecked(lc.get("push_dir", False))
         self.cl_exec.setChecked(lc.get("execute", False))
         self.cl_del.setChecked(lc.get("delete_after", False))
+        self.add_header.setText(f"Editing launcher: {name}")
+        self.add_header.setStyleSheet("font-weight: bold; font-size: 13px; color: #7bd88f; padding: 8px 0 2px 0;")
         self._cl_refresh_fields()
+        self._load_custom_launchers()      # rebuild so the Edit button goes green
         self.cl_name.setFocus()
-   
+    
 class SettingsDialog(QWidget):
     """Standalone settings window for external-tool paths."""
     def __init__(self, state):
