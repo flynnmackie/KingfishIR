@@ -7,13 +7,14 @@ PowerShell Remoting) and **Unix/Linux** (over SSH) targets — using each
 platform's native remote-management protocols, with **no agent pre-installed**
 on the targets.
 
-Features: cross-platform *and* agentless *and* integrated 
-(discovery → verification → collection in one workflow), with forensic soundness 
-(hashing, minimal footprint, chain of custody) as a main concern.
+The design occupies a specific point in the tool landscape: cross-platform *and*
+agentless *and* integrated (discovery → verification → collection in one
+workflow), with forensic soundness (hashing, minimal footprint, chain of
+custody) as a first-class concern.
 
-Developed as an MSc dissertation project investigating cross-platform agentless
-forensic collection and the operational and forensic trade-offs involved,
-compared against agent-based approaches such as Velociraptor.
+![Workflow demo](assets/workflow.gif)
+
+*Scan a subnet, verify access, and collect artefacts — end to end.*
 
 ## Workflow
 
@@ -72,6 +73,23 @@ own audit log and its own `launched/` output directory):
 * Colour-coded by type, and written to CSV for an auditable record outside the
   application.
 
+## Screenshots
+
+### Discovery — flexible host scanning
+![Discovery tab](assets/discovery.png)
+
+### Access — credential profiles, verification, and persistent host state
+![Access tab](assets/access.png)
+
+### Collect — artefact selection with integrity hashing
+![Collect tab](assets/collect.png)
+
+### Launch — presets and custom launchers
+![Launch tab](assets/launch.png)
+
+### Log — chain-of-custody record
+![Log tab](assets/log.png)
+
 ## Project layout
 
 ```
@@ -82,6 +100,7 @@ core/          research logic: discovery, access, collection, models, hashing,
 transports/    protocol wrappers behind one Transport interface
                (winrm_transport, ssh_transport)
 gui/           the GUI layer (app.py)
+tests/         unit tests
 main.py        entry point
 ```
 
@@ -120,6 +139,12 @@ The tool can be packaged with PyInstaller (see `RemoteTriageCollector.spec`):
 pip install pyinstaller
 pyinstaller RemoteTriageCollector.spec
 ```
+
+## Academic context
+
+Developed as an MSc dissertation project investigating cross-platform agentless
+forensic collection and the operational and forensic trade-offs involved,
+compared against agent-based approaches such as Velociraptor.
 
 ## Notes on forensic soundness
 
