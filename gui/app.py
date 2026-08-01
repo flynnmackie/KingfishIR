@@ -299,9 +299,9 @@ class AccessTab(QWidget):
         left.addWidget(_help_label(
             "Verify which hosts you can reach with valid credentials. "
             "Load hosts from discovery, create a profile on the right and assign it to each host, then click Verify access."))
-        self.host_table = QTableWidget(0, 5)
+        self.host_table = QTableWidget(0, 6)
         self.host_table.setHorizontalHeaderLabels(
-            ["Host", "OS", "Profile", "WinRM", "SSH"])
+            ["Host", "OS", "Profile", "WinRM", "SSH", "Shell"])
         header = self.host_table.horizontalHeader()
         header.setStretchLastSection(False)
         header.setSectionResizeMode(0, QHeaderView.Fixed)     # Host
@@ -312,6 +312,8 @@ class AccessTab(QWidget):
         self.host_table.setColumnWidth(2, 150)
         header.setSectionResizeMode(3, QHeaderView.Stretch)   # WinRM
         header.setSectionResizeMode(4, QHeaderView.Stretch)   # SSH
+        header.setSectionResizeMode(5, QHeaderView.Fixed)     # Shell
+        self.host_table.setColumnWidth(5, 70)
         left.addWidget(self.host_table)
 
         btn_row = QHBoxLayout()
@@ -383,6 +385,16 @@ class AccessTab(QWidget):
         # Domain field only for Windows domain; sudo field only for Linux.
         self.domain_in.setVisible(is_domain)
         self.sudo_in.setVisible(is_ssh)
+
+    def _open_shell(self, host):
+        profile = self.state.store.get(host.profile_name)
+        if profile is None:
+            QMessageBox.warning(self, "No profile", "This host has no profile assigned.")
+            return
+        from core.shell_launcher import open_shell
+        ok, msg = open_shell(host, profile, self.audit)
+        if not ok:
+            QMessageBox.warning(self, "Shell failed", msg)
 
     # ---- profile creation ----
     def add_profile(self):
@@ -524,6 +536,8 @@ class AccessTab(QWidget):
             self.host_table.setCellWidget(r, 2, combo)
             self.host_table.setItem(r, 3, QTableWidgetItem("—"))
             self.host_table.setItem(r, 4, QTableWidgetItem("—"))
+            self.host_table.setItem(r, 4, QTableWidgetItem("—"))
+            self.host_table.setItem(r, 5, QTableWidgetItem(""))    # Shell (button added on auth)
         self.verify_btn.setEnabled(len(hosts) > 0)
 
     def delete_profile(self, name):
@@ -564,6 +578,14 @@ class AccessTab(QWidget):
             if self.host_table.item(r, 0).text() == host.ip:
                 self._set_state_cell(r, 3, host.winrm_state, host.hostname)
                 self._set_state_cell(r, 4, host.ssh_state, host.hostname)
+                # add a Shell button if authenticated on either protocol
+                authed = (host.winrm_state is AccessState.AUTHENTICATED or
+                          host.ssh_state is AccessState.AUTHENTICATED)
+                if authed:
+                    shell_btn = QPushButton("Shell")
+                    shell_btn.setStyleSheet("QPushButton { padding: 2px 6px; font-size: 11px; }")
+                    shell_btn.clicked.connect(lambda _, h=host: self._open_shell(h))
+                    self.host_table.setCellWidget(r, 5, shell_btn)
                 break
 
     def on_verify_done(self):
