@@ -2266,7 +2266,7 @@ class LogTab(QWidget):
 
 def run():
     app = QApplication([])
-    app.setWindowIcon(QIcon("kf_paint_nobg.ico"))
+    app.setWindowIcon(QIcon("kingfisher.ico"))
     app.setStyleSheet("""
         QWidget { background-color: #1e1e1e; color: #e0e0e0; }
         QLineEdit, QComboBox, QListWidget, QTableWidget {
