@@ -829,11 +829,6 @@ class CollectTab(QWidget):
             "QPushButton { background-color: #1b5e20; color: white; font-weight: bold; "
             "padding: 8px; border: none; border-radius: 3px; }"
             "QPushButton:hover { background-color: #2e7d32; }")
-
-
-
-
-
         
         right.addWidget(self.collect_btn)
         layout.addLayout(right, 1)
@@ -1107,20 +1102,30 @@ class LauncherTab(QWidget):
         custom_layout = QVBoxLayout(self.custom_panel)
         custom_layout.setContentsMargins(0, 0, 0, 0)
 
+        # ===== box 1: saved launchers (fixed height, own internal scroll) =====
         custom_layout.addWidget(QLabel("Saved custom launchers"))
         self.custom_list = QListWidget()
-        self.custom_list.setMaximumHeight(140)
+        self.custom_list.setMinimumHeight(110)
+        self.custom_list.setMaximumHeight(170)
+        self.custom_list.setStyleSheet(
+            "QListWidget::item { padding: 1px 2px; }"
+            "QListWidget::indicator { width: 11px; height: 11px; }")
         custom_layout.addWidget(self.custom_list)
 
         add_header = QLabel("Add a custom launcher")
         add_header.setStyleSheet("font-weight: bold; font-size: 13px; padding: 8px 0 2px 0;")
         custom_layout.addWidget(add_header)
 
+        # ===== box 2: add-form in its OWN scroll area =====
+        form_container = QWidget()
+        form_layout = QVBoxLayout(form_container)
+        form_layout.setContentsMargins(0, 0, 0, 0)
+
         # name
         nrow = QHBoxLayout()
         nlbl = QLabel("Name:"); nlbl.setFixedWidth(95); nrow.addWidget(nlbl)
         self.cl_name = QLineEdit(); nrow.addWidget(self.cl_name)
-        custom_layout.addLayout(nrow)
+        form_layout.addLayout(nrow)
 
         # OS + shell
         orow = QHBoxLayout()
@@ -1130,7 +1135,7 @@ class LauncherTab(QWidget):
         orow.addWidget(self.cl_os)
         self.cl_shell = QComboBox(); self.cl_shell.addItems(["PowerShell", "CMD"])
         orow.addWidget(self.cl_shell)
-        custom_layout.addLayout(orow)
+        form_layout.addLayout(orow)
 
         # mode
         mrow = QHBoxLayout()
@@ -1138,61 +1143,64 @@ class LauncherTab(QWidget):
         self.cl_mode = QComboBox(); self.cl_mode.addItems(["Run command", "Push file", "Pull file"])
         self.cl_mode.currentTextChanged.connect(self._cl_refresh_fields)
         mrow.addWidget(self.cl_mode)
-        custom_layout.addLayout(mrow)
+        form_layout.addLayout(mrow)
 
-        # --- Push mode: file first ---
+        # --- Push: file to push ---
         self.cl_file_row = QHBoxLayout()
         flbl = QLabel("File to push:"); flbl.setFixedWidth(95); self.cl_file_row.addWidget(flbl)
         self.cl_file = QLineEdit(); self.cl_file_row.addWidget(self.cl_file)
         fbtn = QPushButton("Browse"); fbtn.clicked.connect(lambda: self._browse_into(self.cl_file))
         self.cl_file_row.addWidget(fbtn)
         self.cl_file_w = QWidget(); self.cl_file_w.setLayout(self.cl_file_row)
-        custom_layout.addWidget(self.cl_file_w)
+        form_layout.addWidget(self.cl_file_w)
 
-        # --- Push mode: execute? then delete? ---
+        # --- Push: path (opt) [also used by run-command mode] ---
+        self.cl_work_row = QHBoxLayout()
+        wlbl = QLabel("Path (opt):"); wlbl.setFixedWidth(95); self.cl_work_row.addWidget(wlbl)
+        self.cl_work = QLineEdit(); self.cl_work.setPlaceholderText("Defaults to user's home directory")
+        self.cl_work_row.addWidget(self.cl_work)
+        self.cl_work_w = QWidget(); self.cl_work_w.setLayout(self.cl_work_row)
+        form_layout.addWidget(self.cl_work_w)
+
+        # --- Push: execute? ---
         self.cl_exec = QCheckBox("Execute the pushed file (captures stdout)")
         self.cl_exec.stateChanged.connect(self._cl_refresh_fields)
-        custom_layout.addWidget(self.cl_exec)
-        self.cl_del = QCheckBox("Delete pushed file after")
-        custom_layout.addWidget(self.cl_del)
+        form_layout.addWidget(self.cl_exec)
 
         # --- Command (run-command mode, OR push+execute) ---
         self.cl_cmd_row = QHBoxLayout()
         clbl = QLabel("Command:"); clbl.setFixedWidth(95); self.cl_cmd_row.addWidget(clbl)
         self.cl_cmd = QLineEdit(); self.cl_cmd_row.addWidget(self.cl_cmd)
         self.cl_cmd_w = QWidget(); self.cl_cmd_w.setLayout(self.cl_cmd_row)
-        custom_layout.addWidget(self.cl_cmd_w)
+        form_layout.addWidget(self.cl_cmd_w)
 
-        # --- Pull mode: remote path ---
+        # --- Push: delete after (below command) ---
+        self.cl_del = QCheckBox("Delete pushed file after")
+        form_layout.addWidget(self.cl_del)
+
+        # --- Pull: file to pull ---
         self.cl_rpath_row = QHBoxLayout()
         rlbl = QLabel("File to pull:"); rlbl.setFixedWidth(95); self.cl_rpath_row.addWidget(rlbl)
         self.cl_rpath = QLineEdit(); self.cl_rpath_row.addWidget(self.cl_rpath)
         self.cl_rpath_w = QWidget(); self.cl_rpath_w.setLayout(self.cl_rpath_row)
-        custom_layout.addWidget(self.cl_rpath_w)
+        form_layout.addWidget(self.cl_rpath_w)
         self.cl_pull_note = _help_label("Files over 5GB are auto-rejected.")
-        custom_layout.addWidget(self.cl_pull_note)
+        form_layout.addWidget(self.cl_pull_note)
         self.cl_smb_note = _help_label("Files over ~200MB use SMB (port 445 must be reachable on the target).")
-        custom_layout.addWidget(self.cl_smb_note)
-
-        # --- optional work/destination path (all modes) ---
-        self.cl_work_row = QHBoxLayout()
-        wlbl = QLabel("Path (opt):"); wlbl.setFixedWidth(95); self.cl_work_row.addWidget(wlbl)
-        self.cl_work = QLineEdit(); self.cl_work.setPlaceholderText("Defaults to user's home directory")
-        self.cl_work_row.addWidget(self.cl_work)
-        self.cl_work_w = QWidget(); self.cl_work_w.setLayout(self.cl_work_row)
-        custom_layout.addWidget(self.cl_work_w)
+        form_layout.addWidget(self.cl_smb_note)
 
         add_btn = QPushButton("+ Add launcher")
         add_btn.clicked.connect(self._add_custom_launcher)
-        custom_layout.addWidget(add_btn)
-        custom_layout.addStretch(1)
+        form_layout.addWidget(add_btn)
+        form_layout.addStretch(1)
 
-        from PySide6.QtWidgets import QScrollArea
-        custom_scroll = QScrollArea()
-        custom_scroll.setWidgetResizable(True)
-        custom_scroll.setWidget(self.custom_panel)
-        custom_scroll.setFrameShape(QScrollArea.NoFrame)
-        right.addWidget(custom_scroll)
+        form_scroll = QScrollArea()
+        form_scroll.setWidgetResizable(True)
+        form_scroll.setWidget(form_container)
+        form_scroll.setFrameShape(QScrollArea.NoFrame)
+        custom_layout.addWidget(form_scroll, 1)
+
+        right.addWidget(self.custom_panel, 1)
         self._load_custom_launchers()
         self._cl_refresh_fields()
 
@@ -1278,10 +1286,10 @@ class LauncherTab(QWidget):
             "QPushButton { background-color: #1b5e20; color: white; font-weight: bold; "
             "padding: 8px; border: none; border-radius: 3px; }"
             "QPushButton:hover { background-color: #2e7d32; }")
-        right.addWidget(self.run_btn)
         self.status = QLabel("")
         self.status.setStyleSheet("color: #7fd0ff; font-style: italic; padding: 4px 0;")
         right.addWidget(self.status)
+        right.addWidget(self.run_btn)
 
         self.switch_mode("preset")      # set initial view
         layout.addLayout(right, 3)
@@ -1390,8 +1398,6 @@ class LauncherTab(QWidget):
         is_pull = mode == "Pull file"
         is_run = mode == "Run command"
         exec_ticked = self.cl_exec.isChecked()
-
-        # a command actually runs in: run-command mode, or push+execute
         cmd_runs = is_run or (is_push and exec_ticked)
 
         # push fields
@@ -1399,20 +1405,21 @@ class LauncherTab(QWidget):
         self.cl_exec.setVisible(is_push)
         self.cl_del.setVisible(is_push)
 
-        # command box: run mode always; push mode only if execute ticked
+        # command: run mode always; push mode only when execute ticked
         self.cl_cmd_w.setVisible(cmd_runs)
-        # {exe} hint only when there's a pushed file to reference
-        self.cl_cmd.setPlaceholderText("use {exe} for the pushed file" if is_push else "")
+        self.cl_cmd.setPlaceholderText(
+            "extra flags/args (optional)" if is_push else "")
 
         # shell toggle: Windows AND a command runs
         self.cl_shell.setVisible(is_win and cmd_runs)
 
+        # path (opt): command or push modes, not pull
+        self.cl_work_w.setVisible(not is_pull)
+
         # pull fields
         self.cl_rpath_w.setVisible(is_pull)
         self.cl_pull_note.setVisible(is_pull)
-        # optional work/dest path: command mode or push mode, NOT pull
-        self.cl_work_w.setVisible(not is_pull)
-        self.cl_smb_note.setVisible(is_pull and is_win)      # SMB note Windows-only
+        self.cl_smb_note.setVisible(is_pull and is_win)
 
     def _add_custom_launcher(self):
         name = self.cl_name.text().strip()
@@ -1532,7 +1539,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Remote Triage Collector")
-        self.resize(1400, 600)
+        self.resize(1500, 750)
         self.state = AppState()
 
         container = QWidget()
