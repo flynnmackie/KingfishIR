@@ -1,4 +1,5 @@
 pypsrp
 paramiko
 PySide6
+smbprotocol
 # pyinstaller  # build-time only, for packaging the standalone executable
