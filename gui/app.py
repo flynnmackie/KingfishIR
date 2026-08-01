@@ -1206,8 +1206,17 @@ class LauncherTab(QWidget):
             "font-size: 11px; border-radius: 3px; }"
             "QPushButton:hover { background-color: #c44; }")
         self.cancel_edit_btn.clicked.connect(self._cancel_edit)
-        self.cancel_edit_btn.setVisible(False)      # hidden until editing
+        self.cancel_edit_btn.setVisible(False)
+        self.dup_btn.setVisible(False)      # hidden until editing
         header_row.addWidget(self.cancel_edit_btn)
+        self.dup_btn = QPushButton("⧉ Duplicate")
+        self.dup_btn.setStyleSheet(
+            "QPushButton { background-color: #37474f; color: white; padding: 2px 10px; "
+            "font-size: 11px; border-radius: 3px; }"
+            "QPushButton:hover { background-color: #455a64; }")
+        self.dup_btn.clicked.connect(self._duplicate_launcher)
+        self.dup_btn.setVisible(False)      # hidden until editing
+        header_row.addWidget(self.dup_btn)
         header_row.addStretch()
         custom_layout.addLayout(header_row)
 
@@ -1408,6 +1417,7 @@ class LauncherTab(QWidget):
         self.add_header.setText("Add a custom launcher")
         self.add_header.setStyleSheet("font-weight: bold; font-size: 13px; padding: 8px 0 2px 0;")
         self.cancel_edit_btn.setVisible(False)
+        self.dup_btn.setVisible(False)
         self.cl_name.clear(); self.cl_cmd.clear(); self.cl_file.clear()
         self.cl_rpath.clear(); self.cl_work.clear()
         self.cl_pushdir.setChecked(False)
@@ -1416,8 +1426,45 @@ class LauncherTab(QWidget):
         self.add_header.setText("Add a custom launcher")
         self.add_header.setStyleSheet("font-weight: bold; font-size: 13px; padding: 8px 0 2px 0;")
         self.cancel_edit_btn.setVisible(False)
+        self.dup_btn.setVisible(False)
         self._cl_refresh_fields()
         self._load_custom_launchers()      # rebuild to un-green the Edit button
+
+    def _duplicate_launcher(self):
+        from core.config import load_launchers, save_launchers
+        base_name = self.cl_name.text().strip() or "launcher"
+        launchers = load_launchers()
+        existing_names = {lc.get("name") for lc in launchers}
+        # find a unique name: "X (copy)", "X (copy 2)", ...
+        new_name = f"{base_name} (copy)"
+        n = 2
+        while new_name in existing_names:
+            new_name = f"{base_name} (copy {n})"
+            n += 1
+        # build the new launcher from current form values
+        mode_map = {"Run command": "command", "Push file": "push", "Pull file": "pull"}
+        launcher = {
+            "name": new_name,
+            "os": "windows" if self.cl_os.currentText() == "Windows" else "unix",
+            "shell": "cmd" if self.cl_shell.currentText() == "CMD" else "powershell",
+            "mode": mode_map[self.cl_mode.currentText()],
+            "command": self.cl_cmd.text().strip(),
+            "exe": self.cl_file.text().strip(),
+            "execute": self.cl_exec.isChecked(),
+            "delete_after": self.cl_del.isChecked(),
+            "remote_path": self.cl_rpath.text().strip(),
+            "work_path": self.cl_work.text().strip(),
+            "push_dir": self.cl_pushdir.isChecked(),
+        }
+        launchers.append(launcher)
+        save_launchers(launchers)
+        self.state.config["launchers"] = launchers
+        # switch to editing the new copy
+        self._editing_name = new_name
+        self.cl_name.setText(new_name)
+        self.add_header.setText(f"Editing launcher: {new_name}")
+        self.add_header.setStyleSheet("font-weight: bold; font-size: 13px; color: #7bd88f; padding: 8px 0 2px 0;")
+        self._load_custom_launchers()
 
     def _browse_push_target(self):
                 from PySide6.QtWidgets import QFileDialog
@@ -1641,6 +1688,7 @@ class LauncherTab(QWidget):
         self.add_header.setText("Add a custom launcher")
         self.add_header.setStyleSheet("font-weight: bold; font-size: 13px; padding: 8px 0 2px 0;")
         self.cancel_edit_btn.setVisible(False)
+        self.dup_btn.setVisible(False)
         self.cl_name.clear(); self.cl_cmd.clear(); self.cl_file.clear(); self.cl_rpath.clear()
         self.cl_work.clear()
         self.cl_pushdir.setChecked(False)
@@ -1757,6 +1805,7 @@ class LauncherTab(QWidget):
         self.add_header.setText(f"Editing launcher: {name}")
         self.add_header.setStyleSheet("font-weight: bold; font-size: 13px; color: #7bd88f; padding: 8px 0 2px 0;")
         self.cancel_edit_btn.setVisible(True)
+        self.dup_btn.setVisible(True)
         self._cl_refresh_fields()
         self._load_custom_launchers()      # rebuild so the Edit button goes green
         self.cl_name.setFocus()
