@@ -20,6 +20,8 @@ from core.collection import collect_from_host, run_timestamp
 from transports.winrm_transport import WinRMTransport
 from transports.ssh_transport import SSHTransport
 
+import os
+
 #Friendly Labels for CredKind
 _KIND_CHOICES = {
     "Windows (domain)": CredKind.DOMAIN_KERBEROS,
@@ -1107,8 +1109,9 @@ class LauncherTab(QWidget):
         self.custom_list.setMinimumHeight(110)
         self.custom_list.setMaximumHeight(170)
         self.custom_list.setStyleSheet(
-            "QListWidget::item { padding: 1px 2px; }"
-            "QListWidget::indicator { width: 11px; height: 11px; }")
+            "QListWidget::item { padding: 0px 2px; }"
+            "QListWidget::indicator { width: 10px; height: 10px; }"
+            "QListWidget { font-size: 11px; }")
         custom_layout.addWidget(self.custom_list)
 
         add_header = QLabel("Add a custom launcher")
@@ -1119,6 +1122,7 @@ class LauncherTab(QWidget):
         form_container = QWidget()
         form_layout = QVBoxLayout(form_container)
         form_layout.setContentsMargins(0, 0, 0, 0)
+        form_layout.setSpacing(4)
 
         # name
         nrow = QHBoxLayout()
@@ -1453,7 +1457,20 @@ class LauncherTab(QWidget):
         from core.config import load_launchers
         self.custom_list.clear()
         for lc in load_launchers():
-            item = QListWidgetItem(f"{lc['name']}  ({lc['os']} · {lc['mode']})")
+            # build a compact per-mode summary
+            mode = lc.get("mode", "")
+            if mode == "push":
+                exec_part = f"Exec={lc.get('command') or 'yes'}" if lc.get("execute") else "Exec=no"
+                summary = (f"File={os.path.basename(lc.get('exe',''))}  "
+                           f"Path={lc.get('work_path') or 'home'}  "
+                           f"{exec_part}  Delete={'yes' if lc.get('delete_after') else 'no'}")
+            elif mode == "pull":
+                summary = f"File={lc.get('remote_path','')}"
+            else:  # command
+                summary = (f"Cmd={lc.get('command','')}  "
+                           f"Path={lc.get('work_path') or 'home'}")
+            label = f"{lc['name']}  ({lc['os']} · {mode})   {summary}"
+            item = QListWidgetItem(label)
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             item.setCheckState(Qt.Unchecked)
             item.setData(Qt.UserRole, lc["name"])
