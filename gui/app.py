@@ -1910,8 +1910,10 @@ class LauncherTab(QWidget):
 class AboutDialog(QDialog):
 
     SECTIONS = {
+        
         "Overview": (
-            "<b>Remote Triage Collector</b><br><br>"
+            "<img src='kingfisher.png' width='160'><br><br>"
+            "<b>KingfishIR</b><br><br>"
             "A cross-platform, agentless digital-forensic triage tool. It discovers "
             "hosts on a network, verifies remote access using credential profiles, and "
             "collects artefacts from Windows (PS-Remote) and Unix (SSH), no agent required."
@@ -2002,7 +2004,11 @@ class AboutDialog(QDialog):
         # text area
         self.text = QTextBrowser()
         self.text.setOpenExternalLinks(True)
-        self.text.setStyleSheet("QTextEdit { font-size: 13px; padding: 8px; }")
+        from PySide6.QtCore import QUrl
+        self.text.setSearchPaths(["."])          # resolve relative <img> paths from the app dir
+        self.text.setStyleSheet("QTextEdit { font-size: 13px; padding: 4px; }")
+        self.text.setOpenExternalLinks(True)
+        self.text.setStyleSheet("QTextEdit { font-size: 13px; padding: 4px; }")
         layout.addWidget(self.text, 1)
 
         close_btn = QPushButton("Close")
@@ -2260,7 +2266,7 @@ class LogTab(QWidget):
 
 def run():
     app = QApplication([])
-    app.setWindowIcon(QIcon("kingfisher.ico"))
+    app.setWindowIcon(QIcon("kf_paint_nobg.ico"))
     app.setStyleSheet("""
         QWidget { background-color: #1e1e1e; color: #e0e0e0; }
         QLineEdit, QComboBox, QListWidget, QTableWidget {
