@@ -179,11 +179,11 @@ def run_custom_launcher(host, transport, launcher, audit, out_root, run_folder):
             else:
                 full = f"cd '{work_path}' && {cmd}"
             audit.log(ip, "launch run", artefact=name, outcome="ok",
-                      detail=f"running command in {work_path} ({launcher.get('shell','sh')})")
+                      detail=f"running command in {work_path}: {full}")
             out = transport.run_command(_wrap(full), use_sudo=use_sudo).decode(errors="replace")
-            (dest_dir / "stdout.txt").write_text(out if out else "(no output)", errors="replace")
+            (dest_dir / f"{name}_stdout.txt").write_text(out if out else "(no output)", errors="replace")
             audit.log(ip, "launch collect", artefact=name, outcome="ok",
-                      detail=f"captured stdout -> launched/{name}/stdout.txt")
+                      detail=f"captured stdout -> launched/{name}/{name}_stdout.txt")
             return True
 
         # ================= PUSH FILE =================
@@ -198,14 +198,19 @@ def run_custom_launcher(host, transport, launcher, audit, out_root, run_folder):
             transport.put_file(local_file, remote_file)
 
             if launcher.get("execute"):
-                # substitute {exe} with the pushed file's remote path
-                cmd = launcher.get("command", "").replace("{exe}", f'"{remote_file}"')
+                # auto-run the pushed file; command field = extra flags/args
+                extra = launcher.get("command", "").strip()
+                if is_windows and launcher.get("shell", "powershell") != "cmd":
+                    # PowerShell needs the call operator & to run a quoted exe path
+                    cmd = f'& "{remote_file}" {extra}'.strip()
+                else:
+                    cmd = f'"{remote_file}" {extra}'.strip()
                 audit.log(ip, "launch run", artefact=name, outcome="ok",
-                          detail="executing pushed file")
+                          detail=f"executing: {cmd}")
                 out = transport.run_command(_wrap(cmd), use_sudo=use_sudo).decode(errors="replace")
-                (dest_dir / "stdout.txt").write_text(out, errors="replace")
+                (dest_dir / f"{name}_stdout.txt").write_text(out if out else "(no output)", errors="replace")
                 audit.log(ip, "launch collect", artefact=name, outcome="ok",
-                          detail=f"captured stdout -> Launched/{name}/stdout.txt")
+                          detail=f"captured stdout -> launched/{name}/{name}_stdout.txt")
 
             if launcher.get("delete_after"):
                 try:
