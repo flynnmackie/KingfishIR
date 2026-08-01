@@ -562,6 +562,9 @@ class AccessTab(QWidget):
             combo.setMaximumWidth(120)
             combo.addItem("— none —")
             combo.addItems(self.state.store.names())
+            if h.profile_name and h.profile_name in self.state.store.names():
+                combo.setCurrentText(h.profile_name)
+            self.host_table.setCellWidget(r, 2, combo)
             # WinRM / SSH state cell for a not-yet-verified-this-session host:
             #   never verified before  -> red "verify"
             #   verified in a past run  -> amber "re-verify" (stale)
