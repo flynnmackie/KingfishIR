@@ -1191,7 +1191,6 @@ class LauncherTab(QWidget):
         add_btn = QPushButton("+ Add launcher")
         add_btn.clicked.connect(self._add_custom_launcher)
         form_layout.addWidget(add_btn)
-        form_layout.addStretch(1)
 
         form_scroll = QScrollArea()
         form_scroll.setWidgetResizable(True)
