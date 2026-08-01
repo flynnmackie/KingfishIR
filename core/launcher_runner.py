@@ -225,52 +225,98 @@ def run_custom_launcher(host, transport, launcher, audit, out_root, run_folder):
         # ================= PULL FILE =================
         elif mode == "pull":
             remote_path = launcher.get("remote_path", "")
-            limit_mb = 5120        # fixed 5GB cap; larger files auto-rejected
+            limit_mb = 5120        # fixed 5GB cap
+            cleanup_remote = None   # set if we create a temp archive to remove after
 
-            # check the remote file size first
+            # determine whether the path is a FILE or a DIRECTORY (or missing)
+            if is_windows:
+                kind = transport.run_command(
+                    f"powershell -Command \"if(Test-Path -LiteralPath '{remote_path}' -PathType Container)"
+                    f"{{'DIR'}}elseif(Test-Path -LiteralPath '{remote_path}'){{'FILE'}}else{{'MISSING'}}\""
+                ).decode(errors="replace").strip()
+            else:
+                kind = transport.run_command(
+                    f"if [ -d '{remote_path}' ]; then echo DIR; "
+                    f"elif [ -f '{remote_path}' ]; then echo FILE; else echo MISSING; fi",
+                    use_sudo=use_sudo).decode(errors="replace").strip()
+
+            if kind == "MISSING":
+                audit.log(ip, "launch pull", artefact=name, outcome="error",
+                          detail=f"path not found: {remote_path}")
+                return False
+
+            # if a directory, archive it on the target first, then pull the archive
+            if kind == "DIR":
+                base = (remote_path.replace("\\", "/").rstrip("/").split("/")[-1]) or "dir"
+                if is_windows:
+                    archive = rf"C:\Windows\Temp\rtc_pull_{base}.zip"
+                    audit.log(ip, "launch archive", artefact=name, outcome="ok",
+                              detail=f"zipping directory {remote_path} on target")
+                    transport.run_command(
+                        f"powershell -Command \"Compress-Archive -Path '{remote_path}\\*' "
+                        f"-DestinationPath '{archive}' -Force\"")
+                else:
+                    archive = f"/tmp/rtc_pull_{base}.tar.gz"
+                    audit.log(ip, "launch archive", artefact=name, outcome="ok",
+                              detail=f"tarring directory {remote_path} on target")
+                    transport.run_command(
+                        f"tar -czf '{archive}' -C '{remote_path}' .", use_sudo=use_sudo)
+                fetch_path = archive
+                cleanup_remote = archive
+            else:
+                fetch_path = remote_path
+
+            # size-check the thing we're about to fetch (file or archive)
             if is_windows:
                 size_out = transport.run_command(
-                    f"powershell -Command \"if(Test-Path '{remote_path}')"
-                    f"{{(Get-Item '{remote_path}').Length}}else{{'MISSING'}}\""
+                    f"powershell -Command \"if(Test-Path -LiteralPath '{fetch_path}')"
+                    f"{{(Get-Item -LiteralPath '{fetch_path}').Length}}else{{'MISSING'}}\""
                 ).decode(errors="replace").strip()
             else:
                 size_out = transport.run_command(
-                    f"if [ -f '{remote_path}' ]; then stat -c %s '{remote_path}'; "
+                    f"if [ -f '{fetch_path}' ]; then stat -c %s '{fetch_path}'; "
                     f"else echo MISSING; fi", use_sudo=use_sudo).decode(errors="replace").strip()
 
             if size_out == "MISSING" or not size_out.isdigit():
                 audit.log(ip, "launch pull", artefact=name, outcome="error",
-                          detail=f"file not found: {remote_path}")
+                          detail=f"could not read {fetch_path} (archive may have failed)")
                 return False
 
             size_mb = int(size_out) // (1024 * 1024)
             if size_mb > limit_mb:
                 audit.log(ip, "launch pull", artefact=name, outcome="error",
                           detail=f"{size_mb}MB exceeds {limit_mb}MB limit - skipped")
+                if cleanup_remote:
+                    try: transport.delete_remote(cleanup_remote)
+                    except Exception: pass
                 return False
 
-            fname = (remote_path.replace("\\", "/").rstrip("/").split("/")[-1]) or "pulled_file"
+            fname = (fetch_path.replace("\\", "/").rstrip("/").split("/")[-1]) or "pulled"
             dest = dest_dir / fname
 
-            # route: large Windows files via SMB, else normal fetch
             if is_windows and size_mb > _WINRM_SAFE_MB:
                 audit.log(ip, "launch pull", artefact=name, outcome="ok",
                           detail=f"{size_mb}MB - retrieving via SMB (445 must be reachable)")
-                transport.fetch_file_smb(remote_path, str(dest))
+                transport.fetch_file_smb(fetch_path, str(dest))
             else:
                 audit.log(ip, "launch pull", artefact=name, outcome="ok",
                           detail=f"retrieving {size_mb}MB via {'SFTP' if not is_windows else 'WinRM'}")
-                data = transport.fetch_file(remote_path)
+                data = transport.fetch_file(fetch_path)
                 dest.write_bytes(data)
 
-            audit.log(ip, "launch collect", artefact=name, outcome="ok",
-                      detail=f"retrieved {fname} -> Launched/{name}/")
-            return True
+            # remove the temp archive from the target
+            if cleanup_remote:
+                try:
+                    transport.delete_remote(cleanup_remote)
+                    audit.log(ip, "launch cleanup", artefact=name, outcome="ok",
+                              detail=f"removed temp archive {cleanup_remote}")
+                except Exception:
+                    pass
 
-        else:
-            audit.log(ip, "launch", artefact=name, outcome="error",
-                      detail=f"unknown mode: {mode}")
-            return False
+            kind_word = "directory (as archive)" if kind == "DIR" else "file"
+            audit.log(ip, "launch collect", artefact=name, outcome="ok",
+                      detail=f"retrieved {kind_word} -> launched/{name}/{fname}")
+            return True
 
     except Exception as exc:
         audit.log(ip, "launch", artefact=name, outcome="error", detail=str(exc))

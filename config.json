@@ -45,6 +45,42 @@
       "delete_after": true,
       "remote_path": "",
       "work_path": ""
+    },
+    {
+      "name": "Pull Dir",
+      "os": "windows",
+      "shell": "powershell",
+      "mode": "pull",
+      "command": "",
+      "exe": "",
+      "execute": false,
+      "delete_after": false,
+      "remote_path": "C:\\Users\\Administrator\\Documents\\test",
+      "work_path": ""
+    },
+    {
+      "name": "pullfile",
+      "os": "windows",
+      "shell": "powershell",
+      "mode": "pull",
+      "command": "",
+      "exe": "",
+      "execute": false,
+      "delete_after": false,
+      "remote_path": "C:\\Users\\Administrators\\Documents\\test\\test123.txt",
+      "work_path": ""
+    },
+    {
+      "name": "pullfile2",
+      "os": "windows",
+      "shell": "powershell",
+      "mode": "pull",
+      "command": "",
+      "exe": "",
+      "execute": false,
+      "delete_after": false,
+      "remote_path": "C:\\users\\Administrator\\Documents\\test\\test123.txt",
+      "work_path": ""
     }
   ]
 }

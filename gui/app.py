@@ -1201,11 +1201,11 @@ class LauncherTab(QWidget):
         # --- Pull: file to pull ---
         self.cl_rpath_row = QHBoxLayout()
         self.cl_rpath_row.setContentsMargins(0, 0, 0, 0)
-        rlbl = QLabel("File to pull:"); rlbl.setFixedWidth(95); self.cl_rpath_row.addWidget(rlbl)
+        rlbl = QLabel("File/dir to pull:"); rlbl.setFixedWidth(95); self.cl_rpath_row.addWidget(rlbl)
         self.cl_rpath = QLineEdit(); self.cl_rpath_row.addWidget(self.cl_rpath)
         self.cl_rpath_w = QWidget(); self.cl_rpath_w.setLayout(self.cl_rpath_row)
         form_layout.addWidget(self.cl_rpath_w)
-        self.cl_pull_note = _help_label("Files over 5GB are auto-rejected.")
+        self.cl_pull_note = _help_label("Files or directories over 5GB are auto-rejected.")
         form_layout.addWidget(self.cl_pull_note)
         self.cl_smb_note = _help_label("Files over ~200MB use SMB (port 445 must be reachable on the target).")
         form_layout.addWidget(self.cl_smb_note)
