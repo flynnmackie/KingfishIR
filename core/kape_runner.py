@@ -13,7 +13,7 @@ from pathlib import Path
 
 def run_kape(host, transport, kape_local_folder, audit, out_root, run_folder):
     ip = host.ip
-    stage = r"C:\Windows\Temp\rtc_kape"
+    stage = r"C:\Windows\Temp\kingfishir_kape"
     remote_zip = rf"{stage}\kape.zip"
     remote_kape_dir = rf"{stage}\kape"
     tdest = rf"{stage}\tout"          # KAPE target output

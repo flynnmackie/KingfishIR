@@ -12,7 +12,7 @@ _WINRM_SAFE_MB = 200
 def deploy_sysmon(host, transport, sysmon_exe, sysmon_config, audit):
     """Push Sysmon + config to a Windows host, install, and verify the service."""
     ip = host.ip
-    stage = r"C:\ProgramData\rtc_sysmon"
+    stage = r"C:\ProgramData\kingfishir_sysmon"
     remote_exe = rf"{stage}\Sysmon64.exe"
     remote_cfg = rf"{stage}\sysmon_config.xml"
 
@@ -59,10 +59,10 @@ def deploy_velociraptor(host, transport, velo_package, audit):
 
     # 1. pick paths per platform
     if is_windows:
-        stage = r"C:\ProgramData\rtc_velo"
+        stage = r"C:\ProgramData\kingfishir_velo"
         remote_pkg = rf"{stage}\velo_client.msi"
     else:
-        stage = "/tmp/rtc_velo"
+        stage = "/tmp/kingfishir_velo"
         remote_pkg = f"{stage}/velo_client.deb"
 
     try:
@@ -84,12 +84,12 @@ def deploy_velociraptor(host, transport, velo_package, audit):
             # single-line -Command string), run it, wait. -Confirm:0 not $false
             # (which mangles to the string 'False' through the command layers).
             ps = (
-                "Register-ScheduledTask -TaskName 'rtc_velo_install' "
+                "Register-ScheduledTask -TaskName 'kingfishir_velo_install' "
                 f"-Action (New-ScheduledTaskAction -Execute '{bat}') "
                 "-User 'SYSTEM' -RunLevel Highest -Force | Out-Null; "
-                "Start-ScheduledTask -TaskName 'rtc_velo_install'; "
+                "Start-ScheduledTask -TaskName 'kingfishir_velo_install'; "
                 "Start-Sleep -Seconds 30; "
-                "Unregister-ScheduledTask -TaskName 'rtc_velo_install' -Confirm:0"
+                "Unregister-ScheduledTask -TaskName 'kingfishir_velo_install' -Confirm:0"
             )
             transport.run_command(f'powershell -Command "{ps}"')
             # poll for the service (can take a moment to register)
@@ -158,7 +158,7 @@ def run_custom_launcher(host, transport, launcher, audit, out_root, run_folder):
             work_path = transport.run_command(
                 "echo $HOME", use_sudo=use_sudo).decode(errors="replace").strip()
         if not work_path or work_path.startswith("%"):   # fallback if resolution fails
-            work_path = r"C:\Windows\Temp\rtc_launch" if is_windows else "/tmp/rtc_launch"
+            work_path = r"C:\Windows\Temp\kingfishir_launch" if is_windows else "/tmp/kingfishir_launch"
 
     def _wrap(cmd):
         """Wrap a Windows command for the chosen shell; Unix passes through."""
@@ -196,7 +196,7 @@ def run_custom_launcher(host, transport, launcher, audit, out_root, run_folder):
             if is_dir:
                 import shutil, tempfile
                 base = os.path.basename(local_path.rstrip("/\\")) or "pushed_dir"
-                tmp_zip = os.path.join(tempfile.gettempdir(), f"rtc_push_{base}.zip")
+                tmp_zip = os.path.join(tempfile.gettempdir(), f"kingfishir_push_{base}.zip")
                 audit.log(ip, "launch archive", artefact=name, outcome="ok",
                           detail=f"zipping {local_path} locally")
                 # make_archive appends .zip; strip it from the base we pass
@@ -305,14 +305,14 @@ def run_custom_launcher(host, transport, launcher, audit, out_root, run_folder):
             if kind == "DIR":
                 base = (remote_path.replace("\\", "/").rstrip("/").split("/")[-1]) or "dir"
                 if is_windows:
-                    archive = rf"C:\Windows\Temp\rtc_pull_{base}.zip"
+                    archive = rf"C:\Windows\Temp\kingfishir_pull_{base}.zip"
                     audit.log(ip, "launch archive", artefact=name, outcome="ok",
                               detail=f"zipping directory {remote_path} on target")
                     transport.run_command(
                         f"powershell -Command \"Compress-Archive -Path '{remote_path}\\*' "
                         f"-DestinationPath '{archive}' -Force\"")
                 else:
-                    archive = f"/tmp/rtc_pull_{base}.tar.gz"
+                    archive = f"/tmp/kingfishir_pull_{base}.tar.gz"
                     audit.log(ip, "launch archive", artefact=name, outcome="ok",
                               detail=f"tarring directory {remote_path} on target")
                     transport.run_command(

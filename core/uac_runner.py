@@ -17,7 +17,7 @@ def run_uac(host, transport, uac_local_folder, audit, out_root, run_folder):
     run with sudo -> pull the produced archive -> clean up both ends.
     """
     ip = host.ip
-    stage = "/tmp/rtc_uac"
+    stage = "/tmp/kingfishir_uac"
     remote_tar = f"{stage}/uac.tar.gz"
     remote_uac_dir = f"{stage}/uac"
     local_tmp = None

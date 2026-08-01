@@ -76,65 +76,65 @@ WINDOWS_CATALOGUE: list[Artefact] = [
                    r'-Recurse -ErrorAction SilentlyContinue | Select-Object FullName | ConvertTo-Csv -NoTypeInformation')),
     Artefact("win_tasks_xml", "Scheduled task definitions", "Persistence", OSFamily.WINDOWS,
              volatility=40, is_command=False, is_archive=True,
-             spec=rf"{_WIN_STAGE}\rtc_tasks.zip",
+             spec=rf"{_WIN_STAGE}\kingfishir_tasks.zip",
              prepare=(rf"robocopy C:\Windows\System32\Tasks {_WIN_STAGE}\tasks /E "
                       rf"/R:0 /W:0 /NP /NFL /NDL /NJH /NJS > $null 2>&1; "
-                      rf"Compress-Archive -Path {_WIN_STAGE}\tasks\* -DestinationPath {_WIN_STAGE}\rtc_tasks.zip -Force")),
+                      rf"Compress-Archive -Path {_WIN_STAGE}\tasks\* -DestinationPath {_WIN_STAGE}\kingfishir_tasks.zip -Force")),
 
     # Registry hives - locked; export an unlocked copy with reg save.
     Artefact("win_reg_system", "SYSTEM hive", "Hives", OSFamily.WINDOWS,
-             volatility=15, is_command=False, spec=rf"{_WIN_STAGE}\rtc_system.hiv",
-             prepare=rf"reg save HKLM\SYSTEM {_WIN_STAGE}\rtc_system.hiv /y"),
+             volatility=15, is_command=False, spec=rf"{_WIN_STAGE}\kingfishir_system.hiv",
+             prepare=rf"reg save HKLM\SYSTEM {_WIN_STAGE}\kingfishir_system.hiv /y"),
     Artefact("win_reg_software", "SOFTWARE hive", "Hives", OSFamily.WINDOWS,
-             volatility=15, is_command=False, spec=rf"{_WIN_STAGE}\rtc_software.hiv",
-             prepare=rf"reg save HKLM\SOFTWARE {_WIN_STAGE}\rtc_software.hiv /y"),
+             volatility=15, is_command=False, spec=rf"{_WIN_STAGE}\kingfishir_software.hiv",
+             prepare=rf"reg save HKLM\SOFTWARE {_WIN_STAGE}\kingfishir_software.hiv /y"),
     Artefact("win_reg_sam", "SAM hive (Alerts Defender)", "Hives", OSFamily.WINDOWS,
-             volatility=15, is_command=False, spec=rf"{_WIN_STAGE}\rtc_sam.hiv",
-             prepare=rf"reg save HKLM\SAM {_WIN_STAGE}\rtc_sam.hiv /y"),
+             volatility=15, is_command=False, spec=rf"{_WIN_STAGE}\kingfishir_sam.hiv",
+             prepare=rf"reg save HKLM\SAM {_WIN_STAGE}\kingfishir_sam.hiv /y"),
     Artefact("win_reg_security", "SECURITY hive (Alerts Defender)", "Hives", OSFamily.WINDOWS,
-             volatility=15, is_command=False, spec=rf"{_WIN_STAGE}\rtc_sechive.hiv",
-             prepare=rf"reg save HKLM\SECURITY {_WIN_STAGE}\rtc_sechive.hiv /y"),
+             volatility=15, is_command=False, spec=rf"{_WIN_STAGE}\kingfishir_sechive.hiv",
+             prepare=rf"reg save HKLM\SECURITY {_WIN_STAGE}\kingfishir_sechive.hiv /y"),
 
     # Event logs - locked; export with wevtutil epl.
 
     # Entire event-log folder - ALL .evtx (hundreds), not just the four above.
     Artefact("win_evtx_all", "ALL EVENT LOGS (entire winevt folder)", "EventLogs",
              OSFamily.WINDOWS, volatility=15, is_command=False, is_archive=True,
-             spec=rf"{_WIN_STAGE}\rtc_all_evtx.zip",
+             spec=rf"{_WIN_STAGE}\kingfishir_all_evtx.zip",
              prepare=(rf"robocopy C:\Windows\System32\winevt\Logs {_WIN_STAGE}\evtx *.evtx "
                       rf"/B /R:0 /W:0 /NP /NFL /NDL /NJH /NJS > $null 2>&1; "
-                      rf"Compress-Archive -Path {_WIN_STAGE}\evtx\* -DestinationPath {_WIN_STAGE}\rtc_all_evtx.zip -Force")),
+                      rf"Compress-Archive -Path {_WIN_STAGE}\evtx\* -DestinationPath {_WIN_STAGE}\kingfishir_all_evtx.zip -Force")),
     Artefact("win_evtx_security", "Security event log", "EventLogs", OSFamily.WINDOWS,
-             volatility=15, is_command=False, spec=rf"{_WIN_STAGE}\rtc_security.evtx",
-             prepare=rf"wevtutil epl Security {_WIN_STAGE}\rtc_security.evtx /ow:true"),
+             volatility=15, is_command=False, spec=rf"{_WIN_STAGE}\kingfishir_security.evtx",
+             prepare=rf"wevtutil epl Security {_WIN_STAGE}\kingfishir_security.evtx /ow:true"),
     Artefact("win_evtx_system", "System event log", "EventLogs", OSFamily.WINDOWS,
-             volatility=15, is_command=False, spec=rf"{_WIN_STAGE}\rtc_system_evtx.evtx",
-             prepare=rf"wevtutil epl System {_WIN_STAGE}\rtc_system_evtx.evtx /ow:true"),
+             volatility=15, is_command=False, spec=rf"{_WIN_STAGE}\kingfishir_system_evtx.evtx",
+             prepare=rf"wevtutil epl System {_WIN_STAGE}\kingfishir_system_evtx.evtx /ow:true"),
     Artefact("win_evtx_application", "Application event log", "EventLogs", OSFamily.WINDOWS,
-             volatility=15, is_command=False, spec=rf"{_WIN_STAGE}\rtc_application.evtx",
-             prepare=rf"wevtutil epl Application {_WIN_STAGE}\rtc_application.evtx /ow:true"),
+             volatility=15, is_command=False, spec=rf"{_WIN_STAGE}\kingfishir_application.evtx",
+             prepare=rf"wevtutil epl Application {_WIN_STAGE}\kingfishir_application.evtx /ow:true"),
     Artefact("win_evtx_powershell", "PowerShell operational log", "EventLogs", OSFamily.WINDOWS,
-             volatility=15, is_command=False, spec=rf"{_WIN_STAGE}\rtc_pwsh.evtx",
-             prepare=rf'wevtutil epl "Microsoft-Windows-PowerShell/Operational" {_WIN_STAGE}\rtc_pwsh.evtx /ow:true'),
+             volatility=15, is_command=False, spec=rf"{_WIN_STAGE}\kingfishir_pwsh.evtx",
+             prepare=rf'wevtutil epl "Microsoft-Windows-PowerShell/Operational" {_WIN_STAGE}\kingfishir_pwsh.evtx /ow:true'),
 
     # Evidence of Execution.
     Artefact("win_prefetch", "Prefetch", "EvidenceOfExecution", OSFamily.WINDOWS,
              volatility=15, is_command=False, is_archive=True,
-             spec=rf"{_WIN_STAGE}\rtc_prefetch.zip",
+             spec=rf"{_WIN_STAGE}\kingfishir_prefetch.zip",
              prepare=(rf"robocopy C:\Windows\Prefetch {_WIN_STAGE}\pf *.pf /B /R:0 /W:0 /NP /NFL /NDL /NJH /NJS > $null 2>&1; "
-                      rf"Compress-Archive -Path {_WIN_STAGE}\pf\* -DestinationPath {_WIN_STAGE}\rtc_prefetch.zip -Force")),
+                      rf"Compress-Archive -Path {_WIN_STAGE}\pf\* -DestinationPath {_WIN_STAGE}\kingfishir_prefetch.zip -Force")),
 
     Artefact("win_srum", "SRUM database", "EvidenceOfExecution", OSFamily.WINDOWS,
              volatility=15, is_command=False,
-             spec=rf"{_WIN_STAGE}\rtc_srudb.dat",
+             spec=rf"{_WIN_STAGE}\kingfishir_srudb.dat",
              prepare=(rf"robocopy C:\Windows\System32\sru {_WIN_STAGE}\sru SRUDB.dat "
                       rf"/B /R:0 /W:0 /NP /NFL /NDL /NJH /NJS > $null 2>&1; "
-                      rf"Move-Item {_WIN_STAGE}\sru\SRUDB.dat {_WIN_STAGE}\rtc_srudb.dat -Force")),
+                      rf"Move-Item {_WIN_STAGE}\sru\SRUDB.dat {_WIN_STAGE}\kingfishir_srudb.dat -Force")),
 
     # --- Browser history (per-user; high value) ---
     Artefact("win_browser", "Browser history (Chrome/Edge)", "Browser", OSFamily.WINDOWS,
              volatility=20, is_command=False, is_archive=True,
-             spec=rf"{_WIN_STAGE}\rtc_browser.zip",
+             spec=rf"{_WIN_STAGE}\kingfishir_browser.zip",
              prepare=(
                  rf"$d='{_WIN_STAGE}\browser'; md $d -Force | Out-Null; "
                  r"gci C:\Users -Directory | % { "
@@ -142,22 +142,22 @@ WINDOWS_CATALOGUE: list[Artefact] = [
                  r"$e=Join-Path $_.FullName 'AppData\Local\Microsoft\Edge\User Data\Default\History'; "
                  r"if(Test-Path $c){cp $c (Join-Path $d ($_.Name+'_chrome_History')) -Force -EA 0}; "
                  r"if(Test-Path $e){cp $e (Join-Path $d ($_.Name+'_edge_History')) -Force -EA 0} }; "
-                 rf"Compress-Archive $d\* {_WIN_STAGE}\rtc_browser.zip -Force -EA 0")),
+                 rf"Compress-Archive $d\* {_WIN_STAGE}\kingfishir_browser.zip -Force -EA 0")),
 
     # --- Recent files / LNK ---
     Artefact("win_recent", "Recent files (LNK)", "EvidenceOfExecution", OSFamily.WINDOWS,
              volatility=20, is_command=False, is_archive=True,
-             spec=rf"{_WIN_STAGE}\rtc_recent.zip",
+             spec=rf"{_WIN_STAGE}\kingfishir_recent.zip",
              prepare=(
                  rf"$d='{_WIN_STAGE}\recent'; md $d -Force | Out-Null; "
                  r"gci C:\Users -Directory | % { "
                  r"$r=Join-Path $_.FullName 'AppData\Roaming\Microsoft\Windows\Recent'; "
                  r"if(Test-Path $r){cp $r (Join-Path $d $_.Name) -Recurse -Force -EA 0} }; "
-                 rf"Compress-Archive $d\* {_WIN_STAGE}\rtc_recent.zip -Force -EA 0")),
+                 rf"Compress-Archive $d\* {_WIN_STAGE}\kingfishir_recent.zip -Force -EA 0")),
 
     Artefact("win_jumplists", "Jump Lists", "EvidenceOfExecution", OSFamily.WINDOWS,
              volatility=20, is_command=False, is_archive=True,
-             spec=rf"{_WIN_STAGE}\rtc_jumplists.zip",
+             spec=rf"{_WIN_STAGE}\kingfishir_jumplists.zip",
              prepare=(
                  rf"$d='{_WIN_STAGE}\jump'; md $d -Force | Out-Null; "
                  r"gci C:\Users -Directory | % { "
@@ -165,7 +165,7 @@ WINDOWS_CATALOGUE: list[Artefact] = [
                  r"$c=Join-Path $_.FullName 'AppData\Roaming\Microsoft\Windows\Recent\CustomDestinations'; "
                  r"if(Test-Path $a){cp $a (Join-Path $d ($_.Name+'_Automatic')) -Recurse -Force -EA 0}; "
                  r"if(Test-Path $c){cp $c (Join-Path $d ($_.Name+'_Custom')) -Recurse -Force -EA 0} }; "
-                 rf"Compress-Archive $d\* {_WIN_STAGE}\rtc_jumplists.zip -Force -EA 0")),
+                 rf"Compress-Archive $d\* {_WIN_STAGE}\kingfishir_jumplists.zip -Force -EA 0")),
 
     # --- WMI persistence (event subscriptions) ---
     Artefact("win_wmi_persist", "WMI event subscriptions", "Persistence", OSFamily.WINDOWS,
@@ -222,12 +222,12 @@ UNIX_CATALOGUE: list[Artefact] = [
              spec="echo '=== passwd ==='; cat /etc/passwd; echo '=== group ==='; cat /etc/group"),
     Artefact("nix_shadow", "Password hashes (shadow)", "Accounts", OSFamily.UNIX,
              volatility=30, is_command=False, requires_sudo=True,
-             spec=f"{_NIX_STAGE}/rtc_shadow",
-             prepare=f"sh -c 'cp /etc/shadow {_NIX_STAGE}/rtc_shadow; chmod 644 {_NIX_STAGE}/rtc_shadow'"),
+             spec=f"{_NIX_STAGE}/kingfishir_shadow",
+             prepare=f"sh -c 'cp /etc/shadow {_NIX_STAGE}/kingfishir_shadow; chmod 644 {_NIX_STAGE}/kingfishir_shadow'"),
     Artefact("nix_sudoers", "Sudoers configuration", "Accounts", OSFamily.UNIX,
              volatility=30, is_command=False, requires_sudo=True,
-             spec=f"{_NIX_STAGE}/rtc_sudoers",
-             prepare=f"sh -c 'cp /etc/sudoers {_NIX_STAGE}/rtc_sudoers 2>/dev/null; cat /etc/sudoers.d/* >> {_NIX_STAGE}/rtc_sudoers 2>/dev/null; chmod 644 {_NIX_STAGE}/rtc_sudoers'"),
+             spec=f"{_NIX_STAGE}/kingfishir_sudoers",
+             prepare=f"sh -c 'cp /etc/sudoers {_NIX_STAGE}/kingfishir_sudoers 2>/dev/null; cat /etc/sudoers.d/* >> {_NIX_STAGE}/kingfishir_sudoers 2>/dev/null; chmod 644 {_NIX_STAGE}/kingfishir_sudoers'"),
 
     # --- Persistence ---
     Artefact("nix_cron_system", "System cron jobs", "Persistence", OSFamily.UNIX,
@@ -260,12 +260,12 @@ UNIX_CATALOGUE: list[Artefact] = [
     # --- Authentication / login records ---
     Artefact("nix_auth_logs", "Auth logs (wtmp/btmp/auth)", "Accounts", OSFamily.UNIX,
              volatility=35, is_command=False, requires_sudo=True, is_archive=True,
-             spec=f"{_NIX_STAGE}/rtc_authlogs.zip",
+             spec=f"{_NIX_STAGE}/kingfishir_authlogs.zip",
              prepare=(f"sh -c 'mkdir -p {_NIX_STAGE}/auth; "
                       f"cp /var/log/wtmp /var/log/btmp /var/log/lastlog /var/log/auth.log* "
                       f"/var/log/secure* {_NIX_STAGE}/auth/ 2>/dev/null; "
-                      f"cd {_NIX_STAGE} && zip -r rtc_authlogs.zip auth >/dev/null 2>&1; "
-                      f"chmod 644 {_NIX_STAGE}/rtc_authlogs.zip'")),
+                      f"cd {_NIX_STAGE} && zip -r kingfishir_authlogs.zip auth >/dev/null 2>&1; "
+                      f"chmod 644 {_NIX_STAGE}/kingfishir_authlogs.zip'")),
 
     # --- Recently modified files (triage staple) ---
     Artefact("nix_recent_files", "Recently modified files (7 days)", "Live State", OSFamily.UNIX,

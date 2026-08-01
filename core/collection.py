@@ -44,8 +44,8 @@ def _stage_dir(host: Host, run_folder: str) -> str:
     """Per-run working directory on the TARGET, platform-appropriate."""
     from .models import OSFamily
     if host.actual_os is OSFamily.UNIX:
-        return f"/tmp/rtc_{run_folder}"
-    return rf"C:\ProgramData\rtc\{run_folder}"
+        return f"/tmp/kingfishir_{run_folder}"
+    return rf"C:\ProgramData\kingfishir\{run_folder}"
 
 
 def collect_from_host(

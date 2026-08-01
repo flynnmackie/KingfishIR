@@ -56,7 +56,7 @@ def open_shell(host, profile, audit=None):
 
     # Step 2: launch the interactive PSSession window. The password is passed via
     # the child process ENVIRONMENT (not the command line), then scrubbed.
-    pw_env = "RTC_SHELL_PW"
+    pw_env = "KINGFISHIR_SHELL_PW"
     ps_lines = [
         f"$pw = ConvertTo-SecureString $env:{pw_env} -AsPlainText -Force",
         f"$cred = New-Object System.Management.Automation.PSCredential('{user}', $pw)",

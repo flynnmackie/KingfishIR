@@ -7,7 +7,7 @@ from pathlib import Path
 
 def run_winpmem(host, transport, winpmem_exe, audit, out_root, run_folder):
     ip = host.ip
-    stage = r"C:\Windows\Temp\rtc_mem"
+    stage = r"C:\Windows\Temp\kingfishir_mem"
     remote_exe = rf"{stage}\winpmem.exe"
     remote_dump = rf"{stage}\memory.raw"
     # Pre-flight: confirm SMB (445) is reachable before the expensive dump
