@@ -1465,7 +1465,7 @@ class LauncherTab(QWidget):
         # push fields
         self.cl_file_w.setVisible(is_push)
         self.cl_exec.setVisible(is_push)
-        self.cl_del.setVisible(is_push)
+        self.cl_del.setVisible(is_push and exec_ticked)
 
         # command: run mode always; push mode only when execute ticked
         self.cl_cmd_w.setVisible(cmd_runs)
