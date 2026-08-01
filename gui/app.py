@@ -1196,9 +1196,20 @@ class LauncherTab(QWidget):
             "QListWidget { font-size: 11px; }")
         custom_layout.addWidget(self.custom_list)
 
+        header_row = QHBoxLayout()
         self.add_header = QLabel("Add a custom launcher")
         self.add_header.setStyleSheet("font-weight: bold; font-size: 13px; padding: 8px 0 2px 0;")
-        custom_layout.addWidget(self.add_header)
+        header_row.addWidget(self.add_header)
+        self.cancel_edit_btn = QPushButton("✕ Cancel edit")
+        self.cancel_edit_btn.setStyleSheet(
+            "QPushButton { background-color: #a33; color: white; padding: 2px 10px; "
+            "font-size: 11px; border-radius: 3px; }"
+            "QPushButton:hover { background-color: #c44; }")
+        self.cancel_edit_btn.clicked.connect(self._cancel_edit)
+        self.cancel_edit_btn.setVisible(False)      # hidden until editing
+        header_row.addWidget(self.cancel_edit_btn)
+        header_row.addStretch()
+        custom_layout.addLayout(header_row)
 
         # ===== box 2: add-form in its OWN scroll area =====
         form_container = QWidget()
@@ -1388,6 +1399,19 @@ class LauncherTab(QWidget):
 
         self.switch_mode("preset")      # set initial view
         layout.addLayout(right, 3)
+
+    def _cancel_edit(self):
+        self._editing_name = None
+        self.cl_name.clear(); self.cl_cmd.clear(); self.cl_file.clear()
+        self.cl_rpath.clear(); self.cl_work.clear()
+        self.cl_pushdir.setChecked(False)
+        self.cl_exec.setChecked(False)
+        self.cl_del.setChecked(False)
+        self.add_header.setText("Add a custom launcher")
+        self.add_header.setStyleSheet("font-weight: bold; font-size: 13px; padding: 8px 0 2px 0;")
+        self.cancel_edit_btn.setVisible(False)
+        self._cl_refresh_fields()
+        self._load_custom_launchers()      # rebuild to un-green the Edit button
 
     def _browse_push_target(self):
                 from PySide6.QtWidgets import QFileDialog
@@ -1602,6 +1626,10 @@ class LauncherTab(QWidget):
         self._editing_name = None
         self.add_header.setText("Add a custom launcher")
         self.add_header.setStyleSheet("font-weight: bold; font-size: 13px; padding: 8px 0 2px 0;")
+        self._editing_name = None
+        self.add_header.setText("Add a custom launcher")
+        self.add_header.setStyleSheet("font-weight: bold; font-size: 13px; padding: 8px 0 2px 0;")
+        self.cancel_edit_btn.setVisible(False)
 
     def _load_custom_launchers(self):
         from core.config import load_launchers
@@ -1710,6 +1738,7 @@ class LauncherTab(QWidget):
         self.cl_del.setChecked(lc.get("delete_after", False))
         self.add_header.setText(f"Editing launcher: {name}")
         self.add_header.setStyleSheet("font-weight: bold; font-size: 13px; color: #7bd88f; padding: 8px 0 2px 0;")
+        self.cancel_edit_btn.setVisible(True)
         self._cl_refresh_fields()
         self._load_custom_launchers()      # rebuild so the Edit button goes green
         self.cl_name.setFocus()

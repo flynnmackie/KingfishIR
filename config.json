@@ -39,7 +39,7 @@
       "os": "windows",
       "shell": "powershell",
       "mode": "push",
-      "command": "-accepteula -nobanner -a *",
+      "command": "-accepteula -nobanner -a * -c",
       "exe": "D:/autorunsc.exe",
       "execute": true,
       "delete_after": true,
@@ -57,7 +57,8 @@
       "execute": false,
       "delete_after": false,
       "remote_path": "C:\\Users\\Administrator\\Documents\\test",
-      "work_path": ""
+      "work_path": "",
+      "push_dir": false
     },
     {
       "name": "pullfile",
