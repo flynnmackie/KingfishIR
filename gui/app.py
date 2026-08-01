@@ -1085,6 +1085,17 @@ class CollectTab(QWidget):
             QMessageBox.warning(self, "Nothing selected",
                                 "Tick at least one host, and either an artefact, UAC, or KAPE.")
             return
+        # Forensic guard: never collect from a host whose access hasn't been
+        # verified THIS session (persisted state is historical until re-verified).
+        unverified = [h.ip for h in hosts if not getattr(h, "verified_this_session", False)]
+        if unverified:
+            QMessageBox.warning(
+                self, "Re-verify required",
+                "These hosts haven't been verified this session:\n\n  • "
+                + "\n  • ".join(unverified)
+                + "\n\nGo to the Access tab and click Verify access before collecting. "
+                  "Persisted host state is historical and must be re-checked.")
+            return
 
         # Guardrail: ticked external-tool options must have their Settings path set.
         missing = []
@@ -1558,6 +1569,14 @@ class LauncherTab(QWidget):
         if not hosts:
             QMessageBox.warning(self, "No hosts selected",
                                 "Tick at least one host to launch on.")
+            return
+        unverified = [h.ip for h in hosts if not getattr(h, "verified_this_session", False)]
+        if unverified:
+            QMessageBox.warning(
+                self, "Re-verify required",
+                "These hosts haven't been verified this session:\n\n  • "
+                + "\n  • ".join(unverified)
+                + "\n\nGo to the Access tab and click Verify access before launching.")
             return
 
         ticked_custom = [name for name, cb in getattr(self, "_custom_checks", {}).items()
