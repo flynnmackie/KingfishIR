@@ -39,7 +39,7 @@
       "os": "windows",
       "shell": "powershell",
       "mode": "push",
-      "command": "-accepteula -nobanner -a * -c",
+      "command": "-accepteula -nobanner -a *",
       "exe": "D:/autorunsc.exe",
       "execute": true,
       "delete_after": true,

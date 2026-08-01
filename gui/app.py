@@ -1618,13 +1618,23 @@ class LauncherTab(QWidget):
         }
         from core.config import load_launchers, save_launchers
         launchers = load_launchers()
-        # update in place if a launcher with this name exists, else append
-        for i, existing in enumerate(launchers):
-            if existing.get("name") == name:
-                launchers[i] = launcher
-                break
+        # if editing, replace the ORIGINAL entry (by _editing_name); else append
+        target = getattr(self, "_editing_name", None)
+        if target:
+            for i, existing in enumerate(launchers):
+                if existing.get("name") == target:
+                    launchers[i] = launcher
+                    break
+            else:
+                launchers.append(launcher)
         else:
-            launchers.append(launcher)
+            # not editing - but avoid duplicate names on a fresh add
+            for i, existing in enumerate(launchers):
+                if existing.get("name") == name:
+                    launchers[i] = launcher
+                    break
+            else:
+                launchers.append(launcher)
         save_launchers(launchers)
         self.state.config["launchers"] = launchers
         self._editing_name = None
