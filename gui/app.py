@@ -684,7 +684,8 @@ class LauncherWorker(QObject):
     error = Signal(str)
 
     def __init__(self, hosts, store, audit, do_sysmon, sysmon_exe, sysmon_config,
-                 do_velo=False, velo_msi="", velo_deb=""):
+                 do_velo=False, velo_msi="", velo_deb="", custom_launchers=None,
+                 run_folder=""):
         super().__init__()
         self.hosts = hosts
         self.store = store
@@ -695,6 +696,8 @@ class LauncherWorker(QObject):
         self.do_velo = do_velo
         self.velo_msi = velo_msi
         self.velo_deb = velo_deb
+        self.custom_launchers = custom_launchers or []
+        self.run_folder = run_folder
 
     def run(self):
         self.audit.subscribe(self.log_row.emit)
@@ -732,6 +735,16 @@ class LauncherWorker(QObject):
                         else:
                             self.audit.log(host.ip, "velo", outcome="error",
                                            detail="no Velociraptor package set for this OS - skipped")
+
+                    # custom launchers (run those whose OS matches this host)
+                    for lc in self.custom_launchers:
+                        lc_is_win = lc.get("os") == "windows"
+                        host_is_win = host.actual_os is OSFamily.WINDOWS
+                        if lc_is_win != host_is_win:
+                            continue      # skip launchers not meant for this host's OS
+                        from core.launcher_runner import run_custom_launcher
+                        run_custom_launcher(host, transport, lc, self.audit,
+                                            out_root="launched", run_folder=self.run_folder)
                 except Exception as exc:
                     self.error.emit(f"{host.ip}: {exc}")
                 finally:
@@ -1338,8 +1351,12 @@ class LauncherTab(QWidget):
                       if self.host_list.item(i).checkState() == Qt.Checked}
         hosts = [h for h in self.state.hosts if h.ip in chosen_ips]
 
-        if not self.sysmon_cb.isChecked() and not self.velo_cb.isChecked():
-            QMessageBox.warning(self, "Nothing to run", "Tick a launcher (Sysmon or Velociraptor).")
+        ticked_custom = [name for name, cb in getattr(self, "_custom_checks", {}).items()
+                         if cb.isChecked()]
+        if (not self.sysmon_cb.isChecked() and not self.velo_cb.isChecked()
+                and not ticked_custom):
+            QMessageBox.warning(self, "Nothing to run",
+                                "Tick a preset (Sysmon/Velociraptor) or a custom launcher.")
             return
         if self.sysmon_cb.isChecked() and not (self.sysmon_exe_in.text().strip()
                                                and self.sysmon_cfg_in.text().strip()):
@@ -1355,6 +1372,13 @@ class LauncherTab(QWidget):
         self.run_btn.setEnabled(False)
         self.status.setText("Launching…")
         self.l_thread = QThread()
+        from core.config import load_launchers
+        all_launchers = load_launchers()
+        chosen_custom = [lc for lc in all_launchers if lc.get("name") in ticked_custom]
+
+        import datetime
+        run_folder = "launch_" + datetime.datetime.now().strftime("%Y-%m-%d-%H%M-%Ss")
+        
         self.l_worker = LauncherWorker(
             hosts, self.state.store, self.audit,
             self.sysmon_cb.isChecked(),
@@ -1362,7 +1386,9 @@ class LauncherTab(QWidget):
             self.sysmon_cfg_in.text().strip(),
             do_velo=self.velo_cb.isChecked(),
             velo_msi=self.velo_msi_in.text().strip(),
-            velo_deb=self.velo_deb_in.text().strip())
+            velo_deb=self.velo_deb_in.text().strip(),
+            custom_launchers=chosen_custom,
+            run_folder=run_folder)
         self.l_worker.moveToThread(self.l_thread)
         self.l_thread.started.connect(self.l_worker.run)
         self.l_worker.log_row.connect(self.log_tab.add_row)
