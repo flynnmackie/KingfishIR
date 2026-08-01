@@ -26,6 +26,12 @@
       "kind": "SSH_PASSWORD",
       "username": "velo",
       "domain": ""
+    },
+    {
+      "name": "ProxMox",
+      "kind": "SSH_PASSWORD",
+      "username": "root",
+      "domain": ""
     }
   ],
   "winpmem_path": "D:/winpmem_mini_x64_rc2.exe",

@@ -380,6 +380,8 @@ class AccessTab(QWidget):
         # show/hide the right fields based on the selected kind
         self.kind_in.currentTextChanged.connect(self.update_fields)
         self.update_fields()          # set initial visibility
+        if self.state.hosts:
+            self.load_hosts()
 
     def _populate_from_profile(self, item):
         name = item.data(Qt.UserRole) if item.data(Qt.UserRole) else item.text()
@@ -561,6 +563,11 @@ class AccessTab(QWidget):
             combo.setMaximumWidth(120)
             combo.addItem("— none —")
             combo.addItems(self.state.store.names())
+            self.host_table.setCellWidget(r, 2, combo)
+            combo.addItem("— none —")
+            combo.addItems(self.state.store.names())
+            if h.profile_name and h.profile_name in self.state.store.names():
+                combo.setCurrentText(h.profile_name)
             self.host_table.setCellWidget(r, 2, combo)
             self.host_table.setItem(r, 3, QTableWidgetItem("—"))
             self.host_table.setItem(r, 4, QTableWidgetItem("—"))
