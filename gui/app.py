@@ -441,7 +441,6 @@ class AccessTab(QWidget):
             sudo_secret=self.sudo_in.text(),
         )
         self.state.store.add(profile)
-        self.state.store.add(profile)
         self._persist_skeletons()
         self.refresh_profiles()
         for w in (self.name_in, self.domain_in, self.user_in, self.pass_in, self.sudo_in):
@@ -563,16 +562,12 @@ class AccessTab(QWidget):
             combo.setMaximumWidth(120)
             combo.addItem("— none —")
             combo.addItems(self.state.store.names())
-            self.host_table.setCellWidget(r, 2, combo)
-            combo.addItem("— none —")
-            combo.addItems(self.state.store.names())
             if h.profile_name and h.profile_name in self.state.store.names():
                 combo.setCurrentText(h.profile_name)
             self.host_table.setCellWidget(r, 2, combo)
             self.host_table.setItem(r, 3, QTableWidgetItem("—"))
             self.host_table.setItem(r, 4, QTableWidgetItem("—"))
-            self.host_table.setItem(r, 4, QTableWidgetItem("—"))
-            self.host_table.setItem(r, 5, QTableWidgetItem(""))    # Shell (button added on auth)
+            self.host_table.setItem(r, 5, QTableWidgetItem(""))
         self.verify_btn.setEnabled(len(hosts) > 0)
 
     def delete_profile(self, name):
