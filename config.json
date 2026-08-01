@@ -48,66 +48,17 @@
       "push_dir": false
     },
     {
-      "name": "Pull Dir",
-      "os": "windows",
-      "shell": "powershell",
-      "mode": "pull",
-      "command": "",
-      "exe": "",
-      "execute": false,
-      "delete_after": false,
-      "remote_path": "C:\\Users\\Administrator\\Documents\\test",
-      "work_path": "",
-      "push_dir": false
-    },
-    {
-      "name": "pullfile",
-      "os": "windows",
-      "shell": "powershell",
-      "mode": "pull",
-      "command": "",
-      "exe": "",
-      "execute": false,
-      "delete_after": false,
-      "remote_path": "C:\\Users\\Administrators\\Documents\\test\\test123.txt",
-      "work_path": ""
-    },
-    {
-      "name": "pullfile2",
-      "os": "windows",
-      "shell": "powershell",
-      "mode": "pull",
-      "command": "",
-      "exe": "",
-      "execute": false,
-      "delete_after": false,
-      "remote_path": "C:\\users\\Administrator\\Documents\\test\\test123.txt",
-      "work_path": ""
-    },
-    {
-      "name": "pullfile3",
-      "os": "windows",
-      "shell": "powershell",
-      "mode": "pull",
-      "command": "",
-      "exe": "",
-      "execute": false,
-      "delete_after": false,
-      "remote_path": "C:\\Users\\Administrator\\Documents\\test\\test12345.txt",
-      "work_path": ""
-    },
-    {
-      "name": "pushdirtest",
+      "name": "autoruns_final2",
       "os": "windows",
       "shell": "powershell",
       "mode": "push",
-      "command": "",
-      "exe": "E:/testpush",
-      "execute": false,
-      "delete_after": false,
+      "command": "-accepteula -nobanner -a * -c",
+      "exe": "D:/autorunsc.exe",
+      "execute": true,
+      "delete_after": true,
       "remote_path": "",
       "work_path": "",
-      "push_dir": true
+      "push_dir": false
     }
   ]
 }

@@ -1402,6 +1402,12 @@ class LauncherTab(QWidget):
 
     def _cancel_edit(self):
         self._editing_name = None
+        self._load_custom_launchers()
+        self.cl_name.clear(); self.cl_cmd.clear(); self.cl_file.clear(); self.cl_rpath.clear()
+        self._editing_name = None
+        self.add_header.setText("Add a custom launcher")
+        self.add_header.setStyleSheet("font-weight: bold; font-size: 13px; padding: 8px 0 2px 0;")
+        self.cancel_edit_btn.setVisible(False)
         self.cl_name.clear(); self.cl_cmd.clear(); self.cl_file.clear()
         self.cl_rpath.clear(); self.cl_work.clear()
         self.cl_pushdir.setChecked(False)
@@ -1621,15 +1627,9 @@ class LauncherTab(QWidget):
             launchers.append(launcher)
         save_launchers(launchers)
         self.state.config["launchers"] = launchers
-        self._load_custom_launchers()
-        self.cl_name.clear(); self.cl_cmd.clear(); self.cl_file.clear(); self.cl_rpath.clear()
         self._editing_name = None
         self.add_header.setText("Add a custom launcher")
         self.add_header.setStyleSheet("font-weight: bold; font-size: 13px; padding: 8px 0 2px 0;")
-        self._editing_name = None
-        self.add_header.setText("Add a custom launcher")
-        self.add_header.setStyleSheet("font-weight: bold; font-size: 13px; padding: 8px 0 2px 0;")
-        self.cancel_edit_btn.setVisible(False)
 
     def _load_custom_launchers(self):
         from core.config import load_launchers
