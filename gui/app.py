@@ -1456,26 +1456,50 @@ class LauncherTab(QWidget):
     def _load_custom_launchers(self):
         from core.config import load_launchers
         self.custom_list.clear()
+        self._custom_checks = {}      # name -> QCheckBox, for reading ticked state
         for lc in load_launchers():
-            # build a compact per-mode summary
             mode = lc.get("mode", "")
+
+            def kv(k, v):    # coloured label + grey italic value
+                return (f"<span style='color:#7fd0ff'>{k}=</span>"
+                        f"<span style='color:#9a9a9a;font-style:italic'>{v}</span>")
+
             if mode == "push":
-                exec_part = f"Exec={lc.get('command') or 'yes'}" if lc.get("execute") else "Exec=no"
-                summary = (f"File={os.path.basename(lc.get('exe',''))}  "
-                           f"Path={lc.get('work_path') or 'home'}  "
-                           f"{exec_part}  Delete={'yes' if lc.get('delete_after') else 'no'}")
+                exec_v = (lc.get("command") or "yes") if lc.get("execute") else "no"
+                parts = [kv("File", os.path.basename(lc.get("exe", ""))),
+                         kv("Path", lc.get("work_path") or "home"),
+                         kv("Exec", exec_v),
+                         kv("Delete", "yes" if lc.get("delete_after") else "no")]
             elif mode == "pull":
-                summary = f"File={lc.get('remote_path','')}"
-            else:  # command
-                summary = (f"Cmd={lc.get('command','')}  "
-                           f"Path={lc.get('work_path') or 'home'}")
-            label = f"{lc['name']}  ({lc['os']} · {mode})   {summary}"
-            item = QListWidgetItem(label)
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(Qt.Unchecked)
+                parts = [kv("File", lc.get("remote_path", ""))]
+            else:
+                parts = [kv("Cmd", lc.get("command", "")),
+                         kv("Path", lc.get("work_path") or "home")]
+
+            html = (f"<b>{lc['name']}</b> "
+                    f"<span style='color:#888'>({lc['os']} · {mode})</span>&nbsp;&nbsp;"
+                    + "&nbsp; ".join(parts))
+
+            row = QWidget()
+            row_lay = QHBoxLayout(row)
+            row_lay.setContentsMargins(4, 1, 4, 1)
+            cb = QCheckBox()
+            cb.setStyleSheet("QCheckBox::indicator { width: 11px; height: 11px; }")
+            self._custom_checks[lc["name"]] = cb
+            row_lay.addWidget(cb)
+            lbl = QLabel(html)
+            lbl.setTextFormat(Qt.RichText)
+            row_lay.addWidget(lbl)
+            row_lay.addStretch()
+
+            item = QListWidgetItem()
+            hint = row.sizeHint()
+            hint.setHeight(24)
+            item.setSizeHint(hint)
             item.setData(Qt.UserRole, lc["name"])
             self.custom_list.addItem(item)
-    
+            self.custom_list.setItemWidget(item, row)
+   
 class SettingsDialog(QWidget):
     """Standalone settings window for external-tool paths."""
     def __init__(self, state):
