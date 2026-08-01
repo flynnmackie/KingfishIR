@@ -135,6 +135,42 @@
       "delete_after": false,
       "remote_path": "C:\\buildlog.txt",
       "work_path": "C:/"
+    },
+    {
+      "name": "cat build",
+      "os": "windows",
+      "shell": "powershell",
+      "mode": "command",
+      "command": "cat *.txt",
+      "exe": "",
+      "execute": false,
+      "delete_after": false,
+      "remote_path": "",
+      "work_path": "C:\\"
+    },
+    {
+      "name": "autoruns",
+      "os": "windows",
+      "shell": "powershell",
+      "mode": "push",
+      "command": "-accepteula -a * -c",
+      "exe": "D:/autorunsc64.exe",
+      "execute": true,
+      "delete_after": true,
+      "remote_path": "",
+      "work_path": ""
+    },
+    {
+      "name": "autorunsv2",
+      "os": "windows",
+      "shell": "powershell",
+      "mode": "push",
+      "command": ".\\autorunsc64.exe -accepteula -a * -c",
+      "exe": "D:/autorunsc64.exe",
+      "execute": true,
+      "delete_after": true,
+      "remote_path": "",
+      "work_path": ""
     }
   ]
 }

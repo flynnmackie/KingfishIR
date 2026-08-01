@@ -1,0 +1,15 @@
+
+
+    Directory: C:\
+
+
+Mode                LastWriteTime         Length Name                                                                   
+----                -------------         ------ ----                                                                   
+d-----        9/12/2016  12:35 PM                Logs                                                                   
+d-----        7/16/2016   2:23 PM                PerfLogs                                                               
+d-r---        9/12/2016  12:35 PM                Program Files                                                          
+d-----        7/16/2016   2:23 PM                Program Files (x86)                                                    
+d-r---        7/24/2026  11:55 PM                Users                                                                  
+d-----        7/25/2026  12:02 AM                Windows                                                                
+-a----         8/1/2026   4:46 PM           1993 buildLog.txt                                                           
+

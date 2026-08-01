@@ -170,12 +170,20 @@ def run_custom_launcher(host, transport, launcher, audit, out_root, run_folder):
         # ================= RUN COMMAND =================
         if mode == "command":
             cmd = launcher.get("command", "")
+            # run from the working path
+            if is_windows:
+                if launcher.get("shell", "powershell") == "cmd":
+                    full = f'cd /d "{work_path}" && {cmd}'
+                else:
+                    full = f"Set-Location '{work_path}'; {cmd}"
+            else:
+                full = f"cd '{work_path}' && {cmd}"
             audit.log(ip, "launch run", artefact=name, outcome="ok",
-                      detail=f"running command ({launcher.get('shell','sh')})")
-            out = transport.run_command(_wrap(cmd), use_sudo=use_sudo).decode(errors="replace")
-            (dest_dir / "stdout.txt").write_text(out, errors="replace")
+                      detail=f"running command in {work_path} ({launcher.get('shell','sh')})")
+            out = transport.run_command(_wrap(full), use_sudo=use_sudo).decode(errors="replace")
+            (dest_dir / "stdout.txt").write_text(out if out else "(no output)", errors="replace")
             audit.log(ip, "launch collect", artefact=name, outcome="ok",
-                      detail=f"captured stdout -> Launched/{name}/stdout.txt")
+                      detail=f"captured stdout -> launched/{name}/stdout.txt")
             return True
 
         # ================= PUSH FILE =================
