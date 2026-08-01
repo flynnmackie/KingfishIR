@@ -532,6 +532,7 @@ class AccessTab(QWidget):
         for h in self.state.hosts:
             if h.profile_name == name:
                 h.profile_name = None
+        self._persist_skeletons()
         self.refresh_profiles()
 
     def on_verify(self):
@@ -1350,6 +1351,11 @@ class LauncherTab(QWidget):
                       for i in range(self.host_list.count())
                       if self.host_list.item(i).checkState() == Qt.Checked}
         hosts = [h for h in self.state.hosts if h.ip in chosen_ips]
+
+        if not hosts:
+            QMessageBox.warning(self, "No hosts selected",
+                                "Tick at least one host to launch on.")
+            return
 
         ticked_custom = [name for name, cb in getattr(self, "_custom_checks", {}).items()
                          if cb.isChecked()]

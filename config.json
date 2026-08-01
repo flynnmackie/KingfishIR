@@ -26,12 +26,6 @@
       "kind": "SSH_PASSWORD",
       "username": "velo",
       "domain": ""
-    },
-    {
-      "name": "heyuofwevfwieojceucbwiodhcrbewudbcwdi",
-      "kind": "DOMAIN_KERBEROS",
-      "username": "evrevrev",
-      "domain": "vfeev"
     }
   ],
   "winpmem_path": "D:/winpmem_mini_x64_rc2.exe",

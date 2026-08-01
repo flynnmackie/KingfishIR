@@ -153,11 +153,11 @@ def run_custom_launcher(host, transport, launcher, audit, out_root, run_folder):
     if not work_path:
         if is_windows:
             work_path = transport.run_command(
-                "powershell -Command \"$env:USERPROFILE\"").decode(errors="replace").strip()
+                "cmd /c echo %USERPROFILE%").decode(errors="replace").strip()
         else:
             work_path = transport.run_command(
                 "echo $HOME", use_sudo=use_sudo).decode(errors="replace").strip()
-        if not work_path:      # fallback if resolution fails
+        if not work_path or work_path.startswith("%"):   # fallback if resolution fails
             work_path = r"C:\Windows\Temp\rtc_launch" if is_windows else "/tmp/rtc_launch"
 
     def _wrap(cmd):
@@ -206,7 +206,7 @@ def run_custom_launcher(host, transport, launcher, audit, out_root, run_folder):
                 else:
                     cmd = f'"{remote_file}" {extra}'.strip()
                 audit.log(ip, "launch run", artefact=name, outcome="ok",
-                          detail=f"executing: {cmd}")
+                          detail=f"executing: {cmd.lstrip('& ').strip()}")
                 out = transport.run_command(_wrap(cmd), use_sudo=use_sudo).decode(errors="replace")
                 (dest_dir / f"{name}_stdout.txt").write_text(out if out else "(no output)", errors="replace")
                 audit.log(ip, "launch collect", artefact=name, outcome="ok",
