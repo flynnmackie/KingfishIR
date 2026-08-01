@@ -562,11 +562,24 @@ class AccessTab(QWidget):
             combo.setMaximumWidth(120)
             combo.addItem("— none —")
             combo.addItems(self.state.store.names())
-            if h.profile_name and h.profile_name in self.state.store.names():
-                combo.setCurrentText(h.profile_name)
-            self.host_table.setCellWidget(r, 2, combo)
-            self.host_table.setItem(r, 3, QTableWidgetItem("—"))
-            self.host_table.setItem(r, 4, QTableWidgetItem("—"))
+            # WinRM / SSH state cell for a not-yet-verified-this-session host:
+            #   never verified before  -> red "verify"
+            #   verified in a past run  -> amber "re-verify" (stale)
+            if not h.verified_this_session:
+                if h.last_verified:
+                    text, colour = "⚠ reverify", QColor(255, 200, 100)   # amber - was verified
+                    tip = f"Last verified {h.last_verified} (previous session). Click Verify access to re-check."
+                else:
+                    text, colour = "⚠ verify", QColor(240, 130, 130)      # red - never verified
+                    tip = "Never verified. Click Verify access to check credentials."
+                for col in (3, 4):
+                    cell = QTableWidgetItem(text)
+                    cell.setForeground(colour)
+                    cell.setToolTip(tip)
+                    self.host_table.setItem(r, col, cell)
+            else:
+                self.host_table.setItem(r, 3, QTableWidgetItem("—"))
+                self.host_table.setItem(r, 4, QTableWidgetItem("—"))
             self.host_table.setItem(r, 5, QTableWidgetItem(""))
         self.verify_btn.setEnabled(len(hosts) > 0)
 
