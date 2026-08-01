@@ -1146,6 +1146,7 @@ class LauncherTab(QWidget):
 
         # --- Push: file to push ---
         self.cl_file_row = QHBoxLayout()
+        self.cl_file_row.setContentsMargins(0, 0, 0, 0)
         flbl = QLabel("File to push:"); flbl.setFixedWidth(95); self.cl_file_row.addWidget(flbl)
         self.cl_file = QLineEdit(); self.cl_file_row.addWidget(self.cl_file)
         fbtn = QPushButton("Browse"); fbtn.clicked.connect(lambda: self._browse_into(self.cl_file))
@@ -1155,6 +1156,7 @@ class LauncherTab(QWidget):
 
         # --- Push: path (opt) [also used by run-command mode] ---
         self.cl_work_row = QHBoxLayout()
+        self.cl_work_row.setContentsMargins(0, 0, 0, 0)
         wlbl = QLabel("Path (opt):"); wlbl.setFixedWidth(95); self.cl_work_row.addWidget(wlbl)
         self.cl_work = QLineEdit(); self.cl_work.setPlaceholderText("Defaults to user's home directory")
         self.cl_work_row.addWidget(self.cl_work)
@@ -1168,6 +1170,7 @@ class LauncherTab(QWidget):
 
         # --- Command (run-command mode, OR push+execute) ---
         self.cl_cmd_row = QHBoxLayout()
+        self.cl_cmd_row.setContentsMargins(0, 0, 0, 0)
         clbl = QLabel("Command:"); clbl.setFixedWidth(95); self.cl_cmd_row.addWidget(clbl)
         self.cl_cmd = QLineEdit(); self.cl_cmd_row.addWidget(self.cl_cmd)
         self.cl_cmd_w = QWidget(); self.cl_cmd_w.setLayout(self.cl_cmd_row)
@@ -1179,6 +1182,7 @@ class LauncherTab(QWidget):
 
         # --- Pull: file to pull ---
         self.cl_rpath_row = QHBoxLayout()
+        self.cl_rpath_row.setContentsMargins(0, 0, 0, 0)
         rlbl = QLabel("File to pull:"); rlbl.setFixedWidth(95); self.cl_rpath_row.addWidget(rlbl)
         self.cl_rpath = QLineEdit(); self.cl_rpath_row.addWidget(self.cl_rpath)
         self.cl_rpath_w = QWidget(); self.cl_rpath_w.setLayout(self.cl_rpath_row)
