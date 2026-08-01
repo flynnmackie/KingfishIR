@@ -50,8 +50,26 @@ class AppState:
     def __init__(self):
         self.hosts = []
         self.store = CredentialStore()
-        from core.config import load_config
-        self.config = load_config()          # {"uac_path": ..., "eztools_path": ...}
+        from core.config import load_config, load_hosts_data
+        self.config = load_config()
+        # restore persisted host inventory (unverified until re-checked this session)
+        from core.models import Host, OSFamily
+        for d in load_hosts_data():
+            try:
+                os_guess = OSFamily(d.get("os_guess", "unknown"))
+            except ValueError:
+                os_guess = OSFamily.UNKNOWN
+            self.hosts.append(Host(
+                ip=d["ip"],
+                hostname=d.get("hostname") or None,
+                os_guess=os_guess,
+                confidence=d.get("confidence", "unknown"),
+                fingerprint_basis=d.get("fingerprint_basis", ""),
+                profile_name=d.get("profile_name") or None,
+                last_scanned=d.get("last_scanned", ""),
+                last_verified=d.get("last_verified", ""),
+                verified_this_session=False,      # ALWAYS false on load - must re-verify
+            ))
 
 class ScanWorker(QObject):
     host_found = Signal(object)
@@ -208,6 +226,8 @@ class DiscoveryTab(QWidget):
         self.scan_btn.setText("Scan")
         total = len(self.state.hosts)
         self.status_label.setText(f"{total} host(s) in list ({total_scanned} scanned this pass).")
+        from core.config import save_hosts
+        save_hosts(self.state.hosts)
 
     def on_stop(self):
             if hasattr(self, "worker") and self.worker:
@@ -594,11 +614,17 @@ class AccessTab(QWidget):
                     shell_btn.setStyleSheet("QPushButton { padding: 2px 6px; font-size: 11px; }")
                     shell_btn.clicked.connect(lambda _, h=host: self._open_shell(h))
                     self.host_table.setCellWidget(r, 5, shell_btn)
+                # mark verified this session (host is now actionable)
+                from datetime import datetime, timezone
+                host.verified_this_session = True
+                host.last_verified = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
                 break
 
     def on_verify_done(self):
         self.verify_btn.setEnabled(True)
         self.verify_btn.setText("Verify access")
+        from core.config import save_hosts
+        save_hosts(self.state.hosts)
 
     def _set_state_cell(self, row, col, state, hostname=None):
         labels = {
