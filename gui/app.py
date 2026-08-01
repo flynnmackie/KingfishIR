@@ -285,9 +285,10 @@ class DiscoveryTab(QWidget):
         self.status_label.setText(f"Removed {ip}. {len(self.state.hosts)} host(s) in list.")
 
 class AccessTab(QWidget):
-    def __init__(self, state: AppState):
+    def __init__(self, state: AppState, log_tab=None):
         super().__init__()
         self.state = state
+        self.log_tab = log_tab
         from core.audit import AuditLog
         self.audit = AuditLog("triage_audit.csv")
         self.launcher_audit = AuditLog("launcher_audit.csv")
@@ -391,8 +392,15 @@ class AccessTab(QWidget):
         if profile is None:
             QMessageBox.warning(self, "No profile", "This host has no profile assigned.")
             return
-        from core.shell_launcher import open_shell
-        ok, msg = open_shell(host, profile, self.audit)
+        bridge = (lambda rec: self.log_tab.add_row(rec)) if self.log_tab else None
+        if bridge:
+            self.audit.subscribe(bridge)
+        try:
+            from core.shell_launcher import open_shell
+            ok, msg = open_shell(host, profile, self.audit)
+        finally:
+            if bridge:
+                self.audit.unsubscribe(bridge)
         if not ok:
             QMessageBox.warning(self, "Shell failed", msg)
 
@@ -1901,9 +1909,9 @@ class MainWindow(QMainWindow):
 
         tabs = QTabWidget()
         tabs.addTab(DiscoveryTab(self.state), "1 · Discovery")
-        access = AccessTab(self.state)
-        tabs.addTab(access, "2 · Access")
         log_tab = LogTab()
+        access = AccessTab(self.state, log_tab)
+        tabs.addTab(access, "2 · Access")
         collect = CollectTab(self.state, access.audit, log_tab)
         tabs.addTab(collect, "3a · Collect")
         launcher = LauncherTab(self.state, access.launcher_audit, log_tab)
@@ -2048,6 +2056,8 @@ class LogTab(QWidget):
         elif rec.action in ("Collect Complete", "Collect Started",
                             "Launch Started", "Launch Complete"):
             bg = QColor(160, 205, 235)       # blue, end-of-run marker
+        elif rec.action in ("shell opened", "shell", "trustedhosts edit"):
+            bg = QColor(70, 110, 180)        # deep blue - interactive shell events
         elif rec.outcome == "error" or rec.match == "N":
             bg = QColor(240, 170, 175)       # red, failure / hash mismatch
         else:

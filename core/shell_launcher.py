@@ -28,7 +28,7 @@ def open_shell(host, profile, audit=None):
             subprocess.Popen(cmd, shell=True)
             if audit:
                 audit.log(host.ip, "shell opened", outcome="ok",
-                          detail="interactive SSH shell launched (password prompt)")
+                          detail=f"logged in via tool's shell (SSH) as {user}")
             return True, "SSH shell launched"
         except Exception as exc:
             if audit:
@@ -48,11 +48,11 @@ def open_shell(host, profile, audit=None):
              f"-ArgumentList '-NoProfile','-Command','{th_cmd}'"],
             check=False)
         if audit:
-            audit.log(host.ip, "trustedhosts", outcome="ok",
+            audit.log(host.ip, "trustedhosts edit", outcome="ok",
                       detail=f"added {host.ip} to TrustedHosts")
     except Exception as exc:
         if audit:
-            audit.log(host.ip, "trustedhosts", outcome="error", detail=str(exc))
+            audit.log(host.ip, "trustedhosts edit", outcome="error", detail=str(exc))
 
     # Step 2: launch the interactive PSSession window. The password is passed via
     # the child process ENVIRONMENT (not the command line), then scrubbed.
@@ -74,7 +74,7 @@ def open_shell(host, profile, audit=None):
         subprocess.Popen(cmd, shell=True, env=child_env)
         if audit:
             audit.log(host.ip, "shell opened", outcome="ok",
-                      detail=f"interactive PSSession launched; {host.ip} in TrustedHosts")
+                      detail=f"Logged in via tool's shell (PSSession) as {user} ({host.ip} in TrustedHosts.)")
         return True, "PSSession shell launched"
     except Exception as exc:
         if audit:
