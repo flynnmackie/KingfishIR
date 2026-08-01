@@ -5,7 +5,8 @@ from __future__ import annotations
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QMessageBox,
-    QComboBox, QListWidget, QListWidgetItem, QHeaderView, QCheckBox, QScrollArea
+    QComboBox, QListWidget, QListWidgetItem, QHeaderView, QCheckBox, QScrollArea,
+    QDialog, QTextEdit
 )
 from PySide6.QtCore import QThread, Signal, QObject, Qt, QSize
 from PySide6.QtGui import QColor, QIcon
@@ -344,7 +345,17 @@ class AccessTab(QWidget):
         self.verify_btn = QPushButton("Verify access")
         self.verify_btn.clicked.connect(self.on_verify)
         self.verify_btn.setEnabled(False)
+        self.verify_btn.setStyleSheet(
+            "QPushButton { background-color: #1b5e20; color: white; font-weight: bold; }"
+            "QPushButton:hover { background-color: #2e7d32; }"
+            "QPushButton:disabled { background-color: #3a3a3a; color: #777; }")
         btn_row.addWidget(self.verify_btn)
+        self.clear_hosts_btn = QPushButton("Clear saved hosts")
+        self.clear_hosts_btn.setStyleSheet(
+            "QPushButton { background-color: #6a3a3a; color: white; }"
+            "QPushButton:hover { background-color: #8a4a4a; }")
+        self.clear_hosts_btn.clicked.connect(self._clear_saved_hosts)
+        btn_row.addWidget(self.clear_hosts_btn)
         left.addLayout(btn_row)
         layout.addLayout(left, 4)
 
@@ -408,6 +419,20 @@ class AccessTab(QWidget):
         # Domain field only for Windows domain; sudo field only for Linux.
         self.domain_in.setVisible(is_domain)
         self.sudo_in.setVisible(is_ssh)
+
+    def _clear_saved_hosts(self):
+        reply = QMessageBox.question(
+            self, "Clear saved hosts",
+            "This removes all persisted hosts and their saved profile assignments "
+            "from disk and from the current list.\n\nProfiles themselves are kept. Continue?")
+        if reply != QMessageBox.Yes:
+            return
+        from core.config import clear_saved_hosts
+        clear_saved_hosts()               # delete hosts.json
+        self.state.hosts = []             # clear in-memory list
+        self.host_table.setRowCount(0)    # clear the table
+        self.verify_btn.setEnabled(False)
+        QMessageBox.information(self, "Cleared", "Saved hosts cleared.")
 
     def _open_shell(self, host):
         profile = self.state.store.get(host.profile_name)
@@ -1881,7 +1906,117 @@ class LauncherTab(QWidget):
         self._cl_refresh_fields()
         self._load_custom_launchers()      # rebuild so the Edit button goes green
         self.cl_name.setFocus()
-    
+
+class AboutDialog(QDialog):
+
+    SECTIONS = {
+        "Overview": (
+            "Remote Triage Collector\n\n"
+            "A cross-platform, agentless digital-forensic triage tool. It discovers "
+            "hosts on a network, verifies remote access using credential profiles, and "
+            "collects artefacts from Windows (PS-Remote) and Unix (SSH), no agent required."
+            "\n\n"
+            "Workflow moves left-to-right: Discovery → Access → Collect (or Launch)"
+            "\n"
+            "Every action is recorded in the Log."
+        ),
+        "1 · Discovery": (
+            "DISCOVERY — Find hosts on the network.\n\n"
+            "Enter a target specification and scan for live hosts. Targets can be:\n"
+            "  • a single IP (192.168.1.50)\n"
+            "  • a range (192.168.1.10-20)\n"
+            "  • a CIDR block (192.168.1.0/24)\n"
+            "  • Octet lists (192.168.1.1,10,133)\n"
+            "Each discovered host is fingerprinted for its likely OS (Windows/Unix) from "
+            "TTL and open ports. The host list persists between sessions, unless cleared."
+        ),
+        "2 · Access": (
+            "ACCESS — Assign credentials and verify you can reach each host.\n\n"
+            "Create credential profiles (username, password, domain, sudo) on the right, "
+            "then assign a profile to each host via its dropdown. Click Verify access to "
+            "test authentication over WinRM (Windows) or SSH (Unix).\n\n"
+            "Passwords are never written to disk and must be re-inputted everytime the program opens. "
+            "Persisted hosts reload as UNVERIFIED and must be re-verified each session "
+            "\n\n"
+            "Once a host authenticates, clicking the Shell button opens an interactive session to it."
+        ),
+        "3a · Collect": (
+            "COLLECT — Gather forensic artefacts.\n\n"
+            "Tick the verified hosts and the artefacts to collect, then Start collection. "
+            "Artefacts are pulled over the native protocol, hashed at source and after "
+            "transfer to verify integrity, and saved under collected/<run>/<host>/.\n\n"
+            "Also supports external tools: KAPE, UAC, and WinPmem (over SMB) with all output pulled back to local machine\n\n"
+            "KAPE - runs on target with default command: kape.exe--target !SANS_Triage --module !EZParser\n\n"
+            "UAC - runs on target with default command: uac -p ir_triage\n\n"
+            "Tool paths are set in Settings.\n\n"
+            
+        ),
+        "3b · Launch": (
+            "LAUNCH — Deploy or run tooling on hosts (separate from forensic collection).\n\n"
+            "Presets deploy Sysmon or a Velociraptor agent, just provide the files\n\n"
+            "Custom launchers let you define your own actions:\n"
+            "  • Run a command and capture its output\n"
+            "  • Push a file or directory (and optionally execute it)\n"
+            "  • Pull a file or directory back (archived automatically)\n\n"
+            "Custom launchers are saved, editable, and can be duplicated. Output goes to a "
+            "separate launched/ directory."
+        ),
+        "Log": (
+            "LOG — The chain-of-custody record.\n\n"
+            "Every action:\n"
+            "- discovery\n"
+            "- verification\n"
+            "- collection\n"
+            "- artefact hashing\n"
+            "- launcher activity\n"
+            "- interactive shell sessions\n\n"
+            "is timestamped and recorded here with source and post-transfer hashes for collected artefacts.\n\n"
+            "Rows are colour-coded by type (collection, launch, shell, errors). The log is "
+            "also written to CSV files for an auditable record outside the application."
+        ),
+    }
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("About Remote Triage Collector")
+        self.resize(860, 420)
+        layout = QVBoxLayout(self)
+
+        # toggle row
+        toggle_row = QHBoxLayout()
+        toggle_row.setSpacing(2)
+        self._buttons = {}
+        for label in self.SECTIONS:
+            b = QPushButton(label)
+            b.setCheckable(True)
+            b.clicked.connect(lambda _, l=label: self._show_section(l))
+            self._buttons[label] = b
+            toggle_row.addWidget(b)
+        layout.addLayout(toggle_row)
+
+        # text area
+        self.text = QTextEdit()
+        self.text.setReadOnly(True)
+        self.text.setStyleSheet("QTextEdit { font-size: 13px; padding: 8px; }")
+        layout.addWidget(self.text, 1)
+
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        layout.addWidget(close_btn)
+
+        self._show_section("Overview")
+
+    def _show_section(self, label):
+        self.text.setPlainText(self.SECTIONS[label])
+        for name, btn in self._buttons.items():
+            active = name == label
+            btn.setChecked(active)
+            btn.setStyleSheet(
+                "QPushButton { padding: 6px 8px; font-size: 11px; background: #1f6aa5; "
+                "color: white; font-weight: bold; border: none; }" if active else
+                "QPushButton { padding: 6px 8px; font-size: 11px; background: #2b2b2b; "
+                "color: #bbb; border: none; }")
+
 class SettingsDialog(QWidget):
     """Standalone settings window for external-tool paths."""
     def __init__(self, state):
@@ -2022,20 +2157,8 @@ class MainWindow(QMainWindow):
         self.settings_win.show()
 
     def open_about(self):
-        QMessageBox.about(
-            self, "About Remote Triage Collector",
-            "Remote Triage Collector\n\n"
-            "A cross-platform, agentless digital forensic triage tool.\n"
-            "Discovers hosts, verifies access, and collects forensic artefacts\n"
-            "from Windows (WinRM) and Unix (SSH) targets over native protocols.\n"
-            "\n\n"
-            "General Use:\n"
-            "1."
-            "\n\n"
-            "KAPE/UAC Specific\n"
-            "1."
-            )
-
+        dlg = AboutDialog(self)
+        dlg.exec()
 
 class LogTab(QWidget):
     def __init__(self):
