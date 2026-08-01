@@ -1167,19 +1167,12 @@ class LauncherTab(QWidget):
         self.cl_file_row.setContentsMargins(0, 0, 0, 0)
         flbl = QLabel("File to push:"); flbl.setFixedWidth(95); self.cl_file_row.addWidget(flbl)
         self.cl_file = QLineEdit(); self.cl_file_row.addWidget(self.cl_file)
-        fbtn = QPushButton("Browse"); fbtn.clicked.connect(lambda: self._browse_into(self.cl_file))
+        fbtn = QPushButton("Browse"); fbtn.clicked.connect(self._browse_push_target)
         self.cl_file_row.addWidget(fbtn)
         self.cl_file_w = QWidget(); self.cl_file_w.setLayout(self.cl_file_row)
         form_layout.addWidget(self.cl_file_w)
 
-        def _browse_push_target(self):
-            from PySide6.QtWidgets import QFileDialog
-            if self.cl_pushdir.isChecked():
-                path = QFileDialog.getExistingDirectory(self, "Select folder to push")
-            else:
-                path, _ = QFileDialog.getOpenFileName(self, "Select file to push")
-            if path:
-                self.cl_file.setText(path)
+        
 
         # --- Push: path (opt) [also used by run-command mode] ---
         self.cl_work_row = QHBoxLayout()
@@ -1326,6 +1319,15 @@ class LauncherTab(QWidget):
 
         self.switch_mode("preset")      # set initial view
         layout.addLayout(right, 3)
+
+    def _browse_push_target(self):
+                from PySide6.QtWidgets import QFileDialog
+                if self.cl_pushdir.isChecked():
+                    path = QFileDialog.getExistingDirectory(self, "Select folder to push")
+                else:
+                    path, _ = QFileDialog.getOpenFileName(self, "Select file to push")
+                if path:
+                    self.cl_file.setText(path)
 
     def _cl_pushdir_toggle(self):
         is_dir = self.cl_pushdir.isChecked()
