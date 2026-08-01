@@ -824,6 +824,17 @@ class CollectTab(QWidget):
         right.addWidget(self.status)
         self.collect_btn = QPushButton("Start collection")
         self.collect_btn.clicked.connect(self.on_collect)
+
+        self.collect_btn.setStyleSheet(
+            "QPushButton { background-color: #1b5e20; color: white; font-weight: bold; "
+            "padding: 8px; border: none; border-radius: 3px; }"
+            "QPushButton:hover { background-color: #2e7d32; }")
+
+
+
+
+
+        
         right.addWidget(self.collect_btn)
         layout.addLayout(right, 1)
 
@@ -1154,7 +1165,7 @@ class LauncherTab(QWidget):
 
         # --- Pull mode: remote path ---
         self.cl_rpath_row = QHBoxLayout()
-        rlbl = QLabel("Remote path:"); rlbl.setFixedWidth(95); self.cl_rpath_row.addWidget(rlbl)
+        rlbl = QLabel("File to pull:"); rlbl.setFixedWidth(95); self.cl_rpath_row.addWidget(rlbl)
         self.cl_rpath = QLineEdit(); self.cl_rpath_row.addWidget(self.cl_rpath)
         self.cl_rpath_w = QWidget(); self.cl_rpath_w.setLayout(self.cl_rpath_row)
         custom_layout.addWidget(self.cl_rpath_w)
@@ -1263,6 +1274,10 @@ class LauncherTab(QWidget):
         # Run button + status live on `right` (shared by preset and custom modes)
         self.run_btn = QPushButton("Run selected launcher(s)")
         self.run_btn.clicked.connect(self.on_run)
+        self.run_btn.setStyleSheet(
+            "QPushButton { background-color: #1b5e20; color: white; font-weight: bold; "
+            "padding: 8px; border: none; border-radius: 3px; }"
+            "QPushButton:hover { background-color: #2e7d32; }")
         right.addWidget(self.run_btn)
         self.status = QLabel("")
         self.status.setStyleSheet("color: #7fd0ff; font-style: italic; padding: 4px 0;")
@@ -1395,6 +1410,8 @@ class LauncherTab(QWidget):
         # pull fields
         self.cl_rpath_w.setVisible(is_pull)
         self.cl_pull_note.setVisible(is_pull)
+        # optional work/dest path: command mode or push mode, NOT pull
+        self.cl_work_w.setVisible(not is_pull)
         self.cl_smb_note.setVisible(is_pull and is_win)      # SMB note Windows-only
 
     def _add_custom_launcher(self):
@@ -1419,6 +1436,7 @@ class LauncherTab(QWidget):
         launchers = load_launchers()
         launchers.append(launcher)
         save_launchers(launchers)
+        self.state.config["launchers"] = launchers
         self._load_custom_launchers()
         self.cl_name.clear(); self.cl_cmd.clear(); self.cl_file.clear(); self.cl_rpath.clear()
 

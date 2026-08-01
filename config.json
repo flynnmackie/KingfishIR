@@ -45,6 +45,18 @@
       "delete_after": false,
       "remote_path": "",
       "work_path": "C:\\"
+    },
+    {
+      "name": "test1",
+      "os": "windows",
+      "shell": "powershell",
+      "mode": "pull",
+      "command": "",
+      "exe": "",
+      "execute": false,
+      "delete_after": false,
+      "remote_path": "C:\\Windows",
+      "work_path": ""
     }
   ]
 }
