@@ -570,7 +570,7 @@ class AccessTab(QWidget):
             #   verified in a past run  -> amber "re-verify" (stale)
             if not h.verified_this_session:
                 if h.last_verified:
-                    text, colour = "⚠ reverify", QColor(255, 200, 100)   # amber - was verified
+                    text, colour = f"⚠ reverify (last: {h.last_verified})", QColor(255, 200, 100)
                     tip = f"Last verified {h.last_verified} (previous session). Click Verify access to re-check."
                 else:
                     text, colour = "⚠ verify", QColor(240, 130, 130)      # red - never verified
@@ -627,15 +627,15 @@ class AccessTab(QWidget):
                 # add a Shell button if authenticated on either protocol
                 authed = (host.winrm_state is AccessState.AUTHENTICATED or
                           host.ssh_state is AccessState.AUTHENTICATED)
+                from datetime import datetime, timezone
+                host.verified_this_session = True     # attempted this session (any result)
                 if authed:
                     shell_btn = QPushButton("Shell")
                     shell_btn.setStyleSheet("QPushButton { padding: 2px 6px; font-size: 11px; }")
                     shell_btn.clicked.connect(lambda _, h=host: self._open_shell(h))
                     self.host_table.setCellWidget(r, 5, shell_btn)
-                # mark verified this session (host is now actionable)
-                from datetime import datetime, timezone
-                host.verified_this_session = True
-                host.last_verified = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+                    # only record last_verified on SUCCESS (drives amber "re-verify")
+                    host.last_verified = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
                 break
 
     def on_verify_done(self):
