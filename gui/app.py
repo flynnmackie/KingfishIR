@@ -778,6 +778,10 @@ class CollectTab(QWidget):
             "Choose which authenticated hosts and which artefacts to collect. "
             "Load authenticated hosts, tick hosts to collect from and desired artefacts, then click Start collection."))
         self.host_list = QListWidget()
+        self.host_list.setStyleSheet(
+            "QListWidget::item { padding: 0px 2px; }"
+            "QListWidget::indicator { width: 11px; height: 11px; }"
+            "QListWidget { font-size: 11px; }")
         left.addWidget(self.host_list, 1)
         self.load_btn = QPushButton("Load authenticated hosts")
         self.load_btn.clicked.connect(self.load_hosts)
@@ -1081,6 +1085,10 @@ class LauncherTab(QWidget):
             "Run external tools on the selected hosts. "
             "This is separate from forensic collection (3a · Collect) — use it to deploy or run tooling."))
         self.host_list = QListWidget()
+        self.host_list.setStyleSheet(
+            "QListWidget::item { padding: 0px 2px; }"
+            "QListWidget::indicator { width: 11px; height: 11px; }"
+            "QListWidget { font-size: 11px; }")
         left.addWidget(self.host_list, 1)
         self.load_btn = QPushButton("Load authenticated hosts")
         self.load_btn.clicked.connect(self.load_hosts)
