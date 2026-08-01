@@ -1165,7 +1165,8 @@ class LauncherTab(QWidget):
         # --- Push: file to push ---
         self.cl_file_row = QHBoxLayout()
         self.cl_file_row.setContentsMargins(0, 0, 0, 0)
-        flbl = QLabel("File to push:"); flbl.setFixedWidth(95); self.cl_file_row.addWidget(flbl)
+        self.cl_file_lbl = QLabel("File to push:"); self.cl_file_lbl.setFixedWidth(95)
+        self.cl_file_row.addWidget(self.cl_file_lbl)
         self.cl_file = QLineEdit(); self.cl_file_row.addWidget(self.cl_file)
         fbtn = QPushButton("Browse"); fbtn.clicked.connect(self._browse_push_target)
         self.cl_file_row.addWidget(fbtn)
@@ -1464,6 +1465,7 @@ class LauncherTab(QWidget):
         self.cl_file_w.setVisible(is_push)
         self.cl_exec.setVisible(is_push and not is_dir_push)
         self.cl_del.setVisible(is_push and exec_ticked and not is_dir_push)
+        self.cl_file_lbl.setText("Directory to push:" if is_dir_push else "File to push:")
 
         # command: run mode always; push mode only when execute ticked
         self.cl_cmd_w.setVisible(cmd_runs)
