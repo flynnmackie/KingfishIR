@@ -41,3 +41,40 @@ def save_launchers(launchers: list[dict]) -> None:
 
 def load_launchers() -> list[dict]:
     return load_config().get("launchers", [])
+
+HOSTS_PATH = Path("hosts.json")
+
+
+def save_hosts(hosts: list) -> None:
+    """Persist host inventory + profile assignments (NO live state, NO secrets).
+
+    Live verification state and passwords are deliberately NOT saved - persisted
+    hosts reload as 'unverified' and must be re-verified before any collection.
+    """
+    data = []
+    for h in hosts:
+        data.append({
+            "ip": h.ip,
+            "hostname": h.hostname or "",
+            "os_guess": h.os_guess.value if hasattr(h.os_guess, "value") else str(h.os_guess),
+            "confidence": h.confidence,
+            "fingerprint_basis": h.fingerprint_basis,
+            "profile_name": h.profile_name or "",
+            "last_scanned": h.last_scanned,
+            "last_verified": h.last_verified,
+        })
+    HOSTS_PATH.write_text(json.dumps(data, indent=2))
+
+
+def load_hosts_data() -> list[dict]:
+    if HOSTS_PATH.exists():
+        try:
+            return json.loads(HOSTS_PATH.read_text())
+        except Exception:
+            return []
+    return []
+
+
+def clear_saved_hosts() -> None:
+    if HOSTS_PATH.exists():
+        HOSTS_PATH.unlink()

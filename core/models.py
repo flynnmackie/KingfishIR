@@ -45,6 +45,8 @@ class Host:
     ssh_state: AccessState = AccessState.ABSENT
     profile_name: Optional[str] = None   # assigned credential profile
     last_scanned: str = ""
+    last_verified: str = ""
+    verified_this_session: bool = False    # runtime only - never persisted
 
 
 @dataclass
