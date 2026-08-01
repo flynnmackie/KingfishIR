@@ -26,6 +26,12 @@
       "kind": "SSH_PASSWORD",
       "username": "velo",
       "domain": ""
+    },
+    {
+      "name": "heyuofwevfwieojceucbwiodhcrbewudbcwdi",
+      "kind": "DOMAIN_KERBEROS",
+      "username": "evrevrev",
+      "domain": "vfeev"
     }
   ],
   "winpmem_path": "D:/winpmem_mini_x64_rc2.exe",
@@ -33,42 +39,5 @@
   "sysmon_config": "D:/Sysmon/sysmonconfig.xml",
   "velo_msi": "D:/Org__root__velociraptor-v0.75.6-windows-amd64.msi",
   "velo_deb": "D:/velociraptor_client_0.75.6_amd64.deb",
-  "launchers": [
-    {
-      "name": "3rdtest",
-      "os": "windows",
-      "shell": "cmd",
-      "mode": "push",
-      "command": "echo lol : exit",
-      "exe": "C:/Users/Clancon/Documents/buildLog.txt",
-      "execute": true,
-      "delete_after": false,
-      "remote_path": "",
-      "work_path": "C:\\"
-    },
-    {
-      "name": "test1",
-      "os": "windows",
-      "shell": "powershell",
-      "mode": "pull",
-      "command": "",
-      "exe": "",
-      "execute": false,
-      "delete_after": false,
-      "remote_path": "C:\\Windows",
-      "work_path": ""
-    },
-    {
-      "name": "testwithextratest",
-      "os": "windows",
-      "shell": "powershell",
-      "mode": "push",
-      "command": "-runsilently -quiet -extraflag12345",
-      "exe": "C:/Users/Clancon/Documents/buildLog.txt",
-      "execute": true,
-      "delete_after": true,
-      "remote_path": "",
-      "work_path": "C:\\Users\\clancon\\Documents"
-    }
-  ]
+  "launchers": []
 }

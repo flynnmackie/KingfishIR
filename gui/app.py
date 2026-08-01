@@ -1484,13 +1484,25 @@ class LauncherTab(QWidget):
             row_lay = QHBoxLayout(row)
             row_lay.setContentsMargins(4, 1, 4, 1)
             cb = QCheckBox()
-            cb.setStyleSheet("QCheckBox::indicator { width: 11px; height: 11px; }")
+            cb.setStyleSheet(
+                "QCheckBox::indicator { width: 10px; height: 10px; border: 1px solid #6a6a6a; "
+                "border-radius: 3px; background-color: #4a4a4a; }"
+                "QCheckBox::indicator:checked { background-color: #1b5e20; border: 1px solid #43a047; }")
+            self._custom_checks[lc["name"]] = cb
             self._custom_checks[lc["name"]] = cb
             row_lay.addWidget(cb)
             lbl = QLabel(html)
             lbl.setTextFormat(Qt.RichText)
             row_lay.addWidget(lbl)
             row_lay.addStretch()
+            del_btn = QPushButton("Delete")
+            del_btn.setMaximumWidth(60)
+            del_btn.setStyleSheet(
+                "QPushButton { background-color: #a33; color: white; padding: 1px 6px; "
+                "font-size: 11px; border-radius: 3px; }"
+                "QPushButton:hover { background-color: #c44; }")
+            del_btn.clicked.connect(lambda _, n=lc["name"]: self._delete_custom_launcher(n))
+            row_lay.addWidget(del_btn)
 
             item = QListWidgetItem()
             hint = row.sizeHint()
@@ -1499,6 +1511,13 @@ class LauncherTab(QWidget):
             item.setData(Qt.UserRole, lc["name"])
             self.custom_list.addItem(item)
             self.custom_list.setItemWidget(item, row)
+
+    def _delete_custom_launcher(self, name):
+        from core.config import load_launchers, save_launchers
+        launchers = [lc for lc in load_launchers() if lc.get("name") != name]
+        save_launchers(launchers)
+        self.state.config["launchers"] = launchers      # keep in-memory config synced
+        self._load_custom_launchers()
    
 class SettingsDialog(QWidget):
     """Standalone settings window for external-tool paths."""
