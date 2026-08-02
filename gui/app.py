@@ -726,9 +726,9 @@ class CollectWorker(QObject):
         try:
             profile = self.store.get(host.profile_name)
             if host.actual_os is OSFamily.UNIX:
-                transport = SSHTransport(host.ip, profile)
+                transport = SSHTransport(host.ip, profile, self.audit)
             else:
-                transport = WinRMTransport(host.ip, profile)
+                transport = WinRMTransport(host.ip, profile, self.audit)
 
             self.audit.log(host.ip, "session opened", outcome="ok",
                            detail=f"connected to {host.hostname or host.ip}")
@@ -829,9 +829,9 @@ class LauncherWorker(QObject):
                                detail="no profile assigned - skipped")
                 return
             if host.actual_os is OSFamily.UNIX:
-                transport = SSHTransport(host.ip, profile)
+                transport = SSHTransport(host.ip, profile, self.audit)
             else:
-                transport = WinRMTransport(host.ip, profile)
+                transport = WinRMTransport(host.ip, profile, self.audit)
             self.audit.log(host.ip, "session opened", outcome="ok",
                            detail=f"connected to {host.hostname or host.ip}")
 

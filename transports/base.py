@@ -13,9 +13,17 @@ from core.models import AccessState, CredentialProfile
 
 
 class Transport(ABC):
-    def __init__(self, host_ip: str, profile: CredentialProfile):
+    def __init__(self, host_ip: str, profile: CredentialProfile, audit=None):
         self.host_ip = host_ip
         self.profile = profile
+        self.audit = audit
+
+    def _log_command(self, command: str, use_sudo: bool = False):
+        """Record every remote command for command-level chain of custody."""
+        if getattr(self, "audit", None) is not None:
+            self.audit.log(
+                self.host_ip, "remote command", outcome="ok",
+                detail=f"[sudo={'yes' if use_sudo else 'no'}] {command}")
 
     @abstractmethod
     def test_access(self) -> AccessState:

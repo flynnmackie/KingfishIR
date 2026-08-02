@@ -22,8 +22,8 @@ SSH_PORT = 22
 
 
 class SSHTransport(Transport):
-    def __init__(self, host_ip: str, profile: CredentialProfile):
-        super().__init__(host_ip, profile)
+    def __init__(self, host_ip: str, profile: CredentialProfile, audit=None):
+        super().__init__(host_ip, profile, audit)
         self._client: paramiko.SSHClient | None = None
 
     def _connect(self) -> paramiko.SSHClient:
@@ -72,6 +72,7 @@ class SSHTransport(Transport):
         return AccessState.AUTHENTICATED
 
     def run_command(self, command: str, use_sudo: bool = False) -> bytes:
+        self._log_command(command, use_sudo)
         client = self._connect()
         if use_sudo:
             # -S reads the password from stdin (no TTY to prompt on);

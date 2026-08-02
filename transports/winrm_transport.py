@@ -18,8 +18,8 @@ WINRM_HTTP_PORT = 5985
 
 
 class WinRMTransport(Transport):
-    def __init__(self, host_ip: str, profile: CredentialProfile):
-        super().__init__(host_ip, profile)
+    def __init__(self, host_ip: str, profile: CredentialProfile, audit=None):
+        super().__init__(host_ip, profile, audit)
         self._client: Client | None = None
 
     def _connect(self) -> Client:
@@ -60,6 +60,7 @@ class WinRMTransport(Transport):
         return AccessState.AUTHENTICATED
 
     def run_command(self, command: str, use_sudo: bool = False) -> bytes:
+            self._log_command(command, use_sudo)
             return self._ps(command).encode("utf-8", errors="replace")
 
     def fetch_file(self, remote_path: str) -> bytes:
