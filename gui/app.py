@@ -1951,7 +1951,10 @@ class AboutDialog(QDialog):
             "program opens. Persisted hosts reload as UNVERIFIED and must be re-verified "
             "each session.<br><br>"
             "Once a host authenticates, clicking the Shell button opens an interactive "
-            "session to it."
+            "session to it.\n\n"
+            "SSH will work by default as long as enabled and user can remote to a box manually otherwise\n\n"
+            "To enable WinRM, the only command needed to be ran on the target side is:\n"
+            "Enable-PSRemoting -SkipNetworkProfileCheck -Force"
         ),
         "3a · Collect": (
             "<b>COLLECT — Gather forensic artefacts.</b><br><br>"
