@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QMessageBox,
     QComboBox, QListWidget, QListWidgetItem, QHeaderView, QCheckBox, QScrollArea,
-    QDialog, QTextEdit, QTextBrowser
+    QDialog, QTextEdit, QTextBrowser, QFileDialog
 )
 from PySide6.QtCore import QThread, Signal, QObject, Qt, QSize
 from PySide6.QtGui import QColor, QIcon
@@ -2315,6 +2315,34 @@ class LogTab(QWidget):
             self.table.item(r, c).setBackground(bg)
             self.table.item(r, c).setForeground(QColor(20, 20, 20))
 
+def _show_first_run(parent):
+    """One-time welcome: explain the default output location and offer to set one."""
+    from core.paths import app_data_dir
+    from core.config import load_config, save_config
+
+    box = QMessageBox(parent)
+    box.setWindowTitle("Welcome to KingfishIR")
+    box.setIcon(QMessageBox.Information)
+    box.setText("<b>Welcome to KingfishIR</b>")
+    box.setInformativeText(
+        "By default, collected evidence and launcher output are saved to:<br><br>"
+        f"<code>{app_data_dir() / 'kingfishir_output'}</code><br><br>"
+        "For a specific case, you can choose a dedicated output folder now — "
+        "or set one anytime in Settings.")
+    choose_btn = box.addButton("Choose folder…", QMessageBox.AcceptRole)
+    default_btn = box.addButton("Use default for now", QMessageBox.RejectRole)
+    box.exec()
+
+    if box.clickedButton() is choose_btn:
+        folder = QFileDialog.getExistingDirectory(parent, "Select output / case folder")
+        if folder:
+            cfg = load_config()
+            cfg["output_root"] = folder
+            save_config(cfg)
+            QMessageBox.information(
+                parent, "Output location set",
+                f"Evidence will be saved under:\n{folder}\\kingfishir_output\\")
+
 def run():
     app = QApplication([])
     from core.paths import resource_path
@@ -2365,4 +2393,14 @@ def run():
     """)
     window = MainWindow()
     window.show()
+
+    # first-run welcome: nudge the operator to choose an output/case folder
+    from core.config import load_config, save_config
+    cfg = load_config()
+    if not cfg.get("first_run_shown"):
+        _show_first_run(window)
+        cfg = load_config()                    # reload (dialog may have changed it)
+        cfg["first_run_shown"] = True
+        save_config(cfg)
+
     app.exec()
