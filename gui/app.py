@@ -1922,8 +1922,8 @@ class AboutDialog(QDialog):
             "<br><br>"
             "Workflow moves left-to-right: Discovery → Access → Collect (or Launch)<br>"
             "Every action is recorded in the Log.<br><br>"
-            "GitHub: <a href='https://github.com/flynnmackie/Python-Triage-Tool'>"
-            "github.com/flynnmackie/Python-Triage-Tool</a>"
+            "GitHub: <a href='https://github.com/flynnmackie/KingfishIR'>"
+            "https://github.com/flynnmackie/KingfishIR</a>"
         ),
         "1 · Discovery": (
             "<b>DISCOVERY — Find hosts on the network.</b><br><br>"
