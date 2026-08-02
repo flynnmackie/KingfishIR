@@ -171,6 +171,10 @@ def run_custom_launcher(host, transport, launcher, audit, out_root, run_folder):
         # ================= RUN COMMAND =================
         if mode == "command":
             cmd = launcher.get("command", "")
+            if not cmd.strip():
+                audit.log(ip, "launch run", artefact=name, outcome="error",
+                          detail="launcher has no command - skipped")
+                return False
             # run from the working path
             if is_windows:
                 if launcher.get("shell", "powershell") == "cmd":
