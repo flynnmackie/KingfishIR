@@ -60,7 +60,7 @@ class WinRMTransport(Transport):
         return AccessState.AUTHENTICATED
 
     def run_command(self, command: str, use_sudo: bool = False) -> bytes:
-            self._log_command(command, use_sudo)
+            self._log_command(command, use_sudo, show_sudo=False)
             return self._ps(command).encode("utf-8", errors="replace")
 
     def fetch_file(self, remote_path: str) -> bytes:

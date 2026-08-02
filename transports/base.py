@@ -18,12 +18,13 @@ class Transport(ABC):
         self.profile = profile
         self.audit = audit
 
-    def _log_command(self, command: str, use_sudo: bool = False):
+    def _log_command(self, command: str, use_sudo: bool = False, show_sudo: bool = True):
         """Record every remote command for command-level chain of custody."""
         if getattr(self, "audit", None) is not None:
+            prefix = f"[sudo={'yes' if use_sudo else 'no'}] " if show_sudo else ""
             self.audit.log(
                 self.host_ip, "remote command", outcome="ok",
-                detail=f"[sudo={'yes' if use_sudo else 'no'}] {command}")
+                detail=f"{prefix}{command}")
 
     @abstractmethod
     def test_access(self) -> AccessState:
