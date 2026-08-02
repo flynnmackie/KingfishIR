@@ -1416,6 +1416,9 @@ class LauncherTab(QWidget):
         self.cl_del = QCheckBox("Delete pushed file after")
         form_layout.addWidget(self.cl_del)
 
+        self.cl_sudo = QCheckBox("Run with sudo (Unix — elevate the command)")
+        form_layout.addWidget(self.cl_sudo)
+
         # --- Pull: file to pull ---
         self.cl_rpath_row = QHBoxLayout()
         self.cl_rpath_row.setContentsMargins(0, 0, 0, 0)
@@ -1544,6 +1547,7 @@ class LauncherTab(QWidget):
         self.cl_name.clear(); self.cl_cmd.clear(); self.cl_file.clear()
         self.cl_rpath.clear(); self.cl_work.clear()
         self.cl_pushdir.setChecked(False)
+        self.cl_sudo.setChecked(False)
         self.cl_exec.setChecked(False)
         self.cl_del.setChecked(False)
         self.add_header.setText("Add a custom launcher")
@@ -1580,6 +1584,8 @@ class LauncherTab(QWidget):
             "remote_path": self.cl_rpath.text().strip(),
             "work_path": self.cl_work.text().strip(),
             "push_dir": self.cl_pushdir.isChecked(),
+            "push_dir": self.cl_pushdir.isChecked(),
+            "sudo": self.cl_sudo.isChecked(),
         }
         launchers.append(launcher)
         save_launchers(launchers)
@@ -1752,6 +1758,9 @@ class LauncherTab(QWidget):
         is_run = mode == "Run command"
         exec_ticked = self.cl_exec.isChecked()
         self.cl_pushdir.setVisible(is_push)
+        # sudo toggle: Unix only, and only when a command runs
+        is_unix = not is_win
+        self.cl_sudo.setVisible(is_unix and (is_run or (is_push and exec_ticked)))
         is_dir_push = is_push and self.cl_pushdir.isChecked()
         cmd_runs = is_run or (is_push and exec_ticked and not is_dir_push)
 
@@ -1795,6 +1804,8 @@ class LauncherTab(QWidget):
             "remote_path": self.cl_rpath.text().strip(),
             "work_path": self.cl_work.text().strip(),
             "push_dir": self.cl_pushdir.isChecked(),
+            "push_dir": self.cl_pushdir.isChecked(),
+            "sudo": self.cl_sudo.isChecked(),
         }
         from core.config import load_launchers, save_launchers
         launchers = load_launchers()
@@ -1825,6 +1836,7 @@ class LauncherTab(QWidget):
         self.cl_name.clear(); self.cl_cmd.clear(); self.cl_file.clear(); self.cl_rpath.clear()
         self.cl_work.clear()
         self.cl_pushdir.setChecked(False)
+        self.cl_sudo.setChecked(False)
         self.cl_exec.setChecked(False)
         self.cl_del.setChecked(False)
         self._load_custom_launchers()
@@ -1854,6 +1866,8 @@ class LauncherTab(QWidget):
             else:
                 parts = [kv("Cmd", lc.get("command", "")),
                          kv("Path", lc.get("work_path") or "home")]
+            if lc.get("os") == "unix" and lc.get("sudo"):
+                parts.append(kv("Sudo", "yes"))
 
             html = (f"<b>{lc['name']}</b> "
                     f"<span style='color:#888'>({lc['os']} · {mode})</span>&nbsp;&nbsp;"
@@ -1933,6 +1947,7 @@ class LauncherTab(QWidget):
         self.cl_rpath.setText(lc.get("remote_path", ""))
         self.cl_work.setText(lc.get("work_path", ""))
         self.cl_pushdir.setChecked(lc.get("push_dir", False))
+        self.cl_sudo.setChecked(lc.get("sudo", False))
         self.cl_exec.setChecked(lc.get("execute", False))
         self.cl_del.setChecked(lc.get("delete_after", False))
         self.add_header.setText(f"Editing launcher: {name}")

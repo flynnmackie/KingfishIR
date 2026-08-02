@@ -141,7 +141,7 @@ def run_custom_launcher(host, transport, launcher, audit, out_root, run_folder):
     name = launcher.get("name", "custom")
     mode = launcher.get("mode", "command")
     is_windows = host.actual_os is OSFamily.WINDOWS
-    use_sudo = not is_windows        # elevate on Unix; Windows session is already admin
+    use_sudo = (not is_windows) and bool(launcher.get("sudo", False))        # elevate on Unix if requested; Windows session is already admin
 
     # launcher output goes to a SEPARATE top-level 'launched/' tree (not mixed
     # with forensic 'collected/' evidence - keeps chain of custody clean)
