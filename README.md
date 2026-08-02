@@ -13,7 +13,7 @@ workflow), with forensic soundness (hashing, minimal footprint, chain of
 custody) as a first-class concern.
 
 <p align="center">
-  <img src="assets/workflow.gif" alt="Workflow demo" width="800">
+  <img src="assets/workflow.gif" alt="Workflow demo" width="600">
 </p>
 
 <p align="center"><i>Scan a subnet, verify access, and collect artefacts — end to end.</i></p>
