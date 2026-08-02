@@ -773,6 +773,7 @@ class CollectWorker(QObject):
         collected_root = str(output_base() / "collected")
 
         self.audit.subscribe(self.log_row.emit)
+        records_start = len(self.audit.records)
         self.audit.log("-", "Collect Started", outcome="ok",
                        detail=f"run {self.run_folder} ({len(self.hosts)} host(s), "
                               f"up to {self.MAX_CONCURRENT} at once)")
@@ -789,6 +790,19 @@ class CollectWorker(QObject):
                            detail=f"output saved to {collected_root}/{self.run_folder}/")
         finally:
             self.audit.unsubscribe(self.log_row.emit)
+
+        # generate the HTML summary report for this run
+            try:
+                from core.report import generate_collection_report
+                from core.paths import output_base
+                run_records = self.audit.records[records_start:]
+                report_path = output_base() / "collected" / self.run_folder / "report.html"
+                report_path.parent.mkdir(parents=True, exist_ok=True)
+                generate_collection_report(run_records, self.run_folder, self.hosts, report_path)
+                self.audit.log("-", "Report", outcome="ok",
+                               detail=f"collection report -> {report_path}")
+            except Exception as exc:
+                self.audit.log("-", "Report", outcome="error", detail=f"report failed: {exc}")
 
         self.finished.emit(self.run_folder)
 
@@ -879,6 +893,7 @@ class LauncherWorker(QObject):
     def run(self):
         from concurrent.futures import ThreadPoolExecutor
         self.audit.subscribe(self.log_row.emit)
+        records_start = len(self.audit.records)
         try:
             self.audit.log("-", "Launch Started", outcome="ok",
                            detail=f"launcher run begin ({len(self.hosts)} host(s), "
@@ -895,6 +910,18 @@ class LauncherWorker(QObject):
                            detail=f"output saved to: {launched_loc}")
         finally:
             self.audit.unsubscribe(self.log_row.emit)
+
+        try:
+            from core.report import generate_launch_report
+            from core.paths import output_base
+            run_records = self.audit.records[records_start:]
+            report_path = output_base() / "launched" / self.run_folder / "report.html"
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            generate_launch_report(run_records, self.run_folder, self.hosts, report_path)
+            self.audit.log("-", "Report", outcome="ok",
+                            detail=f"launch report -> {report_path}")
+        except Exception as exc:
+            self.audit.log("-", "Report", outcome="error", detail=f"report failed: {exc}")
         self.finished.emit()
 
 class CollectTab(QWidget):
