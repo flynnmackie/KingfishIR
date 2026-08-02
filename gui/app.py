@@ -311,8 +311,9 @@ class AccessTab(QWidget):
         self.state = state
         self.log_tab = log_tab
         from core.audit import AuditLog
-        self.audit = AuditLog("triage_audit.csv")
-        self.launcher_audit = AuditLog("launcher_audit.csv")
+        from core.paths import audit_path
+        self.audit = AuditLog(audit_path("triage_audit.csv"))
+        self.launcher_audit = AuditLog(audit_path("launcher_audit.csv"))
         layout = QHBoxLayout(self)
 
         # ---- Left: host table with a profile dropdown per row ----
@@ -2007,7 +2008,9 @@ class AboutDialog(QDialog):
         self.text = QTextBrowser()
         self.text.setOpenExternalLinks(True)
         from PySide6.QtCore import QUrl
-        self.text.setSearchPaths(["."])          # resolve relative <img> paths from the app dir
+        from core.paths import resource_path
+        import os
+        self.text.setSearchPaths([os.path.dirname(resource_path("kingfisher.png"))])          # resolve relative <img> paths from the app dir
         self.text.setStyleSheet("QTextEdit { font-size: 13px; padding: 4px; }")
         self.text.setOpenExternalLinks(True)
         self.text.setStyleSheet("QTextEdit { font-size: 13px; padding: 4px; }")
@@ -2268,7 +2271,8 @@ class LogTab(QWidget):
 
 def run():
     app = QApplication([])
-    app.setWindowIcon(QIcon("kingfisher.ico"))
+    from core.paths import resource_path
+    app.setWindowIcon(QIcon(resource_path("kingfisher.ico")))
     app.setStyleSheet("""
         QWidget { background-color: #1e1e1e; color: #e0e0e0; }
         QLineEdit, QComboBox, QListWidget, QTableWidget {

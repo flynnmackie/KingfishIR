@@ -7,7 +7,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-CONFIG_PATH = Path("config.json")
+from core.paths import config_path, hosts_path
+CONFIG_PATH = config_path()
 
 
 def load_config() -> dict:
@@ -42,7 +43,7 @@ def save_launchers(launchers: list[dict]) -> None:
 def load_launchers() -> list[dict]:
     return load_config().get("launchers", [])
 
-HOSTS_PATH = Path("hosts.json")
+HOSTS_PATH = hosts_path()
 
 
 def save_hosts(hosts: list) -> None:
