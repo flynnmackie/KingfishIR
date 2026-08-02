@@ -11,6 +11,7 @@ Credentials/secrets must NEVER be passed to log().
 from __future__ import annotations
 
 import csv
+import threading
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,6 +39,7 @@ class AuditLog:
         self.csv_path = Path(csv_path)
         self.records: list[AuditRecord] = []
         self._observers: list[Callable[[AuditRecord], None]] = []
+        self._lock = threading.Lock()
         self._ensure_header()
 
     def _ensure_header(self) -> None:
@@ -80,21 +82,24 @@ class AuditLog:
         match = ""
         if source_hash and received_hash:
             match = "Y" if source_hash == received_hash else "N"
-        rec = AuditRecord(
-            timestamp=datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            host=host,
-            action=action,
-            artefact=artefact,
-            source_hash=source_hash,
-            received_hash=received_hash,
-            size_bytes=size_bytes,
-            match=match,
-            outcome=outcome,
-            detail=detail,
-        )
-        self.records.append(rec)
-        with open(self.csv_path, "a", newline="") as f:
-            csv.DictWriter(f, fieldnames=self.FIELDS).writerow(asdict(rec))
-        for cb in self._observers:
-            cb(rec)
+        # the whole record-build + write + notify is serialised so concurrent
+        # host threads can't interleave rows or corrupt the CSV
+        with self._lock:
+            rec = AuditRecord(
+                timestamp=datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+                host=host,
+                action=action,
+                artefact=artefact,
+                source_hash=source_hash,
+                received_hash=received_hash,
+                size_bytes=size_bytes,
+                match=match,
+                outcome=outcome,
+                detail=detail,
+            )
+            self.records.append(rec)
+            with open(self.csv_path, "a", newline="") as f:
+                csv.DictWriter(f, fieldnames=self.FIELDS).writerow(asdict(rec))
+            for cb in self._observers:
+                cb(rec)
         return rec
