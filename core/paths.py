@@ -61,6 +61,7 @@ def output_base() -> Path:
     return output_root() / "kingfishir_output"
 
 def audit_path(filename: str) -> Path:
-    base = output_base()
-    base.mkdir(parents=True, exist_ok=True)
-    return base / filename
+    """Audit CSVs sit flat in the app-data dir - a stable, consistent location
+    for the chain-of-custody record, separate from the evidence output tree.
+    """
+    return app_data_dir() / filename
