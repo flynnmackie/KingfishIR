@@ -12,7 +12,11 @@ agentless *and* integrated (discovery → verification → collection in one
 workflow), with forensic soundness (hashing, minimal footprint, chain of
 custody) as a first-class concern.
 
-![Workflow demo](assets/workflow.gif)
+<p align="center">
+  <img src="assets/workflow.gif" alt="Workflow demo" width="100%">
+</p>
+
+<p align="center"><i>Scan a subnet, verify access, and collect artefacts — end to end.</i></p>
 
 *Scan a subnet, verify access, and collect artefacts — end to end.*
 
