@@ -1,5 +1,5 @@
 # KingfishIR
-
+<p align="center"> <img src="assets/kingfisher.png" alt="KingfishIR" width="200"> </p> <h1 align="center">KingfishIR</h1> <p align="center"><i>Cross-platform, agentless digital-forensic triage.</i></p>
 A cross-platform, **agentless** digital-forensic triage tool. A single Python
 controller discovers hosts on a network, verifies remote access using credential
 profiles, and collects forensic artefacts from **Windows** (over WinRM /
