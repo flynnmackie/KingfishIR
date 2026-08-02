@@ -1158,7 +1158,9 @@ class CollectTab(QWidget):
         self.collect_btn.setText("Collecting…")
         from PySide6.QtCore import QTimer
         self._elapsed = 0
-        ...
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._tick)
+        self._timer.start(1000)      # tick every second
         
 
         run_folder = run_timestamp()
