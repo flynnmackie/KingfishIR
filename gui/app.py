@@ -814,6 +814,10 @@ class LauncherWorker(QObject):
         self.velo_deb = velo_deb
         self.custom_launchers = custom_launchers or []
         self.run_folder = run_folder
+        log_row = Signal(object)
+        host_done = Signal(str)         # ip - emitted when a host's launch finishes
+        finished = Signal()
+        error = Signal(str)
 
     def _launch_one_host(self, host):
         """All launcher work for a single host. Runs on a pool thread.
@@ -862,6 +866,10 @@ class LauncherWorker(QObject):
                 from core.launcher_runner import run_custom_launcher
                 run_custom_launcher(host, transport, lc, self.audit,
                                     out_root="launched", run_folder=self.run_folder)
+                run_custom_launcher(host, transport, lc, self.audit,
+                                    out_root="launched", run_folder=self.run_folder)
+            self.host_done.emit(host.ip)          # <-- add this line, at the try's end
+        
         except Exception as exc:
             self.error.emit(f"{host.ip}: {exc}")
         finally:
@@ -1215,6 +1223,11 @@ class CollectTab(QWidget):
         self.c_worker.finished.connect(self.c_thread.quit)
         self.c_worker.finished.connect(self.c_worker.deleteLater)
         self.c_thread.finished.connect(self.c_thread.deleteLater)
+
+        self._hosts_total = len(hosts)
+        self._hosts_done = 0
+        self.log_tab.set_progress(f"Collecting: 0 of {self._hosts_total} hosts complete")
+
         self.c_thread.start()
 
     def _tick(self):
@@ -1225,9 +1238,13 @@ class CollectTab(QWidget):
         self.log_tab.timer_label.setText(text)      # mirror onto the Log tab
 
     def on_host_done(self, ip, ok, total):
-        self.status.setText(f"{ip}: {ok}/{total} artefacts collected")
+        self._hosts_done += 1
+        msg = f"{self._hosts_done} of {self._hosts_total} hosts complete"
+        self.status.setText(f"{msg} — {ip}: {ok}/{total} artefacts")
+        self.log_tab.set_progress(f"Collecting: {msg}")
 
     def on_done(self, run_folder):
+        self.log_tab.set_progress(f"Collection complete ({self._hosts_total} hosts)")
         if hasattr(self, "_timer"):
             self._timer.stop()
         self.collect_btn.setText("Start collection")
@@ -1708,11 +1725,18 @@ class LauncherTab(QWidget):
         self.l_worker.finished.connect(self.l_worker.deleteLater)
         self.l_thread.finished.connect(self.l_thread.deleteLater)
         self.l_worker.finished.connect(self.l_thread.quit)
+        self.l_worker.host_done.connect(self.on_launch_host_done)
+
+        self._launch_total = len(hosts)
+        self._launch_done = 0
+        self.log_tab.set_progress(f"Launching: 0 of {self._launch_total} hosts complete")
+
         self.l_thread.start()
 
     def on_launch_done(self):
         self.status.setText("Launch complete.")
         self.run_btn.setEnabled(True)
+        self.log_tab.set_progress(f"Launch complete ({self._launch_total} hosts)")
 
     def load_hosts(self):
         self.host_list.clear()
@@ -1785,6 +1809,12 @@ class LauncherTab(QWidget):
         self.cl_rpath_w.setVisible(is_pull)
         self.cl_pull_note.setVisible(is_pull)
         self.cl_smb_note.setVisible(is_pull and is_win)
+
+    def on_launch_host_done(self, ip):
+        self._launch_done += 1
+        msg = f"{self._launch_done} of {self._launch_total} hosts complete"
+        self.status.setText(msg)
+        self.log_tab.set_progress(f"Launching: {msg}")
 
     def _add_custom_launcher(self):
         name = self.cl_name.text().strip()
@@ -2271,8 +2301,11 @@ class LogTab(QWidget):
         head_row.addWidget(QLabel("Activity log (chain of custody)"))
         head_row.addStretch()
         self.timer_label = QLabel("")
-        self.timer_label.setStyleSheet("color: #7fd0ff; font-style: italic;")
         head_row.addWidget(self.timer_label)
+        self.progress_label = QLabel("")
+        self.progress_label.setStyleSheet("color: #7fd0ff; font-weight: bold; padding-left: 12px;")
+        head_row.addWidget(self.progress_label)
+        head_row.addStretch()
         layout.addLayout(head_row)
         layout.addWidget(_help_label(
             "A timestamped record of every action taken during collection, with hash verification. "
@@ -2303,6 +2336,12 @@ class LogTab(QWidget):
 
     def clear(self):
         self.table.setRowCount(0)
+
+    def set_progress(self, text):
+        self.progress_label.setText(text)
+
+    def clear_progress(self):
+        self.progress_label.setText("")
 
     def add_row(self, rec):
         r = self.table.rowCount()
