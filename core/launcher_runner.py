@@ -145,7 +145,8 @@ def run_custom_launcher(host, transport, launcher, audit, out_root, run_folder):
 
     # launcher output goes to a SEPARATE top-level 'launched/' tree (not mixed
     # with forensic 'collected/' evidence - keeps chain of custody clean)
-    dest_dir = Path("launched") / run_folder / ip / name
+    from core.paths import output_root
+    dest_dir = output_root() / "launched" / run_folder / ip / name
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     # default working location = the authenticating user's home directory

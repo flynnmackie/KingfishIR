@@ -21,6 +21,7 @@ from core.collection import collect_from_host, run_timestamp
 from transports.winrm_transport import WinRMTransport
 from transports.ssh_transport import SSHTransport
 
+from pathlib import Path
 import os
 
 #Friendly Labels for CredKind
@@ -718,6 +719,9 @@ class CollectWorker(QObject):
         self.audit.subscribe(self.log_row.emit)
         self.audit.log("-", "Collect Started", outcome="ok",
                        detail=f"run {self.run_folder}")
+        from core.paths import output_root
+        collected_root = str(output_root() / "collected")
+
         try:
             for host in self.hosts:
                 transport = None
@@ -1982,7 +1986,8 @@ class AboutDialog(QDialog):
             "is timestamped and recorded here, with source and post-transfer hashes for "
             "collected artefacts.<br><br>"
             "Rows are colour-coded by type (collection, launch, shell, errors). The log is "
-            "also written to CSV files for an auditable record outside the application."
+            "also written to CSV files stored in:\n"
+            "User/%APPDATA/KingfishIR"
         ),
     }
 
@@ -2083,6 +2088,23 @@ class SettingsDialog(QWidget):
         pmem_row.addWidget(pmem_browse)
         layout.addLayout(pmem_row)
 
+        # ---- Output location (evidence root) ----
+        layout.addWidget(QLabel("Output location"))
+        layout.addWidget(_help_label(
+            "Where collected artefacts, launcher output, and audit logs are saved. "
+            "Leave blank to use the default location. The folder must already exist."))
+        out_row = QHBoxLayout()
+        out_label = QLabel("Output folder:")
+        out_label.setFixedWidth(90)
+        out_row.addWidget(out_label)
+        self.output_in = QLineEdit(self.state.config.get("output_root", ""))
+        self.output_in.setPlaceholderText("blank = default (AppData)")
+        out_row.addWidget(self.output_in)
+        out_browse = QPushButton("Browse")
+        out_browse.clicked.connect(lambda: self._browse(self.output_in, folder=True))
+        out_row.addWidget(out_browse)
+        layout.addLayout(out_row)
+
         # Save / Cancel
         btn_row = QHBoxLayout()
         btn_row.addStretch()
@@ -2105,9 +2127,28 @@ class SettingsDialog(QWidget):
 
     def _save(self):
         from core.config import save_config
+        # validate the output folder if one is set - must exist and be writable
+        out = self.output_in.text().strip()
+        if out:
+            p = Path(out)
+            if not p.is_dir():
+                QMessageBox.warning(self, "Output folder not found",
+                                    f"The output folder does not exist:\n{out}\n\n"
+                                    "Create it first, or leave the field blank for the default.")
+                return
+            # quick writability check
+            try:
+                testfile = p / ".kingfishir_write_test"
+                testfile.write_text("test")
+                testfile.unlink()
+            except Exception:
+                QMessageBox.warning(self, "Output folder not writable",
+                                    f"Cannot write to:\n{out}\n\nChoose a different folder.")
+                return
         self.state.config["uac_path"] = self.uac_in.text().strip()
         self.state.config["kape_path"] = self.kape_in.text().strip()
         self.state.config["winpmem_path"] = self.pmem_in.text().strip()
+        self.state.config["output_root"] = out
         save_config(self.state.config)
         self.close()
 
