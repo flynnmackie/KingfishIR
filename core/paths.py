@@ -54,7 +54,13 @@ def output_root() -> Path:
         root = ""
     return Path(root) if root else app_data_dir()
 
+def output_base() -> Path:
+    """The KingfishIR output parent - wraps collected/launched/audits under a
+    named folder for attribution, inside the output root (user-set or default).
+    """
+    return output_root() / "kingfishir_output"
 
 def audit_path(filename: str) -> Path:
-    """Audit CSVs live under the output root (bound when the AuditLog is built)."""
-    return output_root() / filename
+    base = output_base()
+    base.mkdir(parents=True, exist_ok=True)
+    return base / filename

@@ -715,8 +715,8 @@ class CollectWorker(QObject):
         self.winpmem_exe = winpmem_exe
 
     def run(self):
-        from core.paths import output_root
-        collected_root = str(output_root() / "collected")
+        from core.paths import output_base
+        collected_root = str(output_base() / "collected")
         # live-feed the audit log into the Log tab
         self.audit.subscribe(self.log_row.emit)
         self.audit.log("-", "Collect Started", outcome="ok",
@@ -861,7 +861,10 @@ class LauncherWorker(QObject):
                             pass
                         self.audit.log(host.ip, "session closed", outcome="ok",
                                        detail=f"disconnected from {host.hostname or host.ip}")
-            self.audit.log("-", "Launch Complete", outcome="ok", detail="launcher run end")
+            from core.paths import output_base
+            launched_loc = output_base() / "launched" / self.run_folder
+            self.audit.log("-", "Launch Complete", outcome="ok",
+                           detail=f"output saved to: {launched_loc}")
         finally:
             self.audit.unsubscribe(self.log_row.emit)
         self.finished.emit()
@@ -1205,8 +1208,8 @@ class CollectTab(QWidget):
             self._timer.stop()
         self.collect_btn.setText("Start collection")
         self.collect_btn.setEnabled(True)
-        from core.paths import output_root
-        self.status.setText(f"Done. Output under {output_root() / 'collected' / run_folder}/")
+        from core.paths import output_base
+        self.status.setText(f"Done. Output under {output_base() / 'collected' / run_folder}/")
         self.log_tab.timer_label.setText("")
 
 class LauncherTab(QWidget):
