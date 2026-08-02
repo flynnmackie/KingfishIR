@@ -751,10 +751,8 @@ class CollectWorker(QObject):
 
                     if self.run_uac and host.actual_os is OSFamily.UNIX and self.uac_folder:
                         from core.uac_runner import run_uac
-                        self.uac_status.emit("running")
                         run_uac(host, transport, self.uac_folder, self.audit,
                                 out_root=collected_root, run_folder=self.run_folder)
-                        self.uac_status.emit("done")
 
                     if self.run_kape and host.actual_os is OSFamily.WINDOWS and self.kape_folder:
                         from core.kape_runner import run_kape
