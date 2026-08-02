@@ -1,7 +1,7 @@
 """Optional memory acquisition: push WinPmem to a Windows target, dump RAM, pull it back."""
 from __future__ import annotations
 
-import os
+
 from pathlib import Path
 
 

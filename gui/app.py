@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QMessageBox,
     QComboBox, QListWidget, QListWidgetItem, QHeaderView, QCheckBox, QScrollArea,
-    QDialog, QTextEdit, QTextBrowser, QFileDialog
+    QDialog, QTextBrowser, QFileDialog
 )
 from PySide6.QtCore import QThread, Signal, QObject, Qt, QSize
 from PySide6.QtGui import QColor, QIcon
@@ -928,7 +928,6 @@ class CollectTab(QWidget):
         right.addWidget(self.artefact_list, 5)
 
         from PySide6.QtWidgets import QCheckBox
-        from PySide6.QtWidgets import QFrame
         self.run_uac_cb = QCheckBox("Run UAC on Unix hosts (uses Settings path)")
         self.run_uac_cb.setStyleSheet(
             "QCheckBox { padding: 4px 2px; font-weight: bold; }"
@@ -2017,7 +2016,6 @@ class AboutDialog(QDialog):
         # text area
         self.text = QTextBrowser()
         self.text.setOpenExternalLinks(True)
-        from PySide6.QtCore import QUrl
         from core.paths import resource_path
         import os
         self.text.setSearchPaths([os.path.dirname(resource_path("kingfisher.png"))])          # resolve relative <img> paths from the app dir

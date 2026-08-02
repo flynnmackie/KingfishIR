@@ -1,17 +1,22 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = []
+# Bundle read-only resources at the app root so resource_path() (which looks in
+# sys._MEIPASS when frozen) can find them in the packaged exe.
+datas = [
+    ('kingfisher.ico', '.'),
+    ('kingfisher.png', '.'),
+]
 binaries = []
 hiddenimports = []
-tmp_ret = collect_all('pypsrp')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('paramiko')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('cryptography')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('pyspnego')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
+# Collect the transport / crypto / SMB dependencies in full so nothing is
+# missing at runtime in the packaged exe.
+for pkg in ('pypsrp', 'paramiko', 'cryptography', 'pyspnego', 'smbprotocol'):
+    d, b, h = collect_all(pkg)
+    datas += d
+    binaries += b
+    hiddenimports += h
 
 
 a = Analysis(
@@ -36,6 +41,7 @@ exe = EXE(
     a.datas,
     [],
     name='KingfishIR',
+    icon='kingfisher.ico',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

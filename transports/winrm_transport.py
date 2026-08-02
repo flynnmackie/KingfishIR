@@ -7,7 +7,6 @@ which is the deliberate lab choice over HTTPS/certificates.
 
 from __future__ import annotations
 
-import base64
 import socket
 
 from pypsrp.client import Client

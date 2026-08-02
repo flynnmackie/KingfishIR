@@ -8,3 +8,7 @@ __pycache__/
 tests/
 launched/
 hosts.json
+build/
+dist/
+*.spec.bak
+__pycache__/

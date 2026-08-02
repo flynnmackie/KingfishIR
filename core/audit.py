@@ -14,7 +14,7 @@ import csv
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable
 
 
 @dataclass
