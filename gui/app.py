@@ -794,6 +794,7 @@ class CollectWorker(QObject):
 
 class LauncherWorker(QObject):
     log_row = Signal(object)
+    host_done = Signal(str)         # ip - emitted when a host's launch finishes
     finished = Signal()
     error = Signal(str)
 
@@ -814,10 +815,6 @@ class LauncherWorker(QObject):
         self.velo_deb = velo_deb
         self.custom_launchers = custom_launchers or []
         self.run_folder = run_folder
-        log_row = Signal(object)
-        host_done = Signal(str)         # ip - emitted when a host's launch finishes
-        finished = Signal()
-        error = Signal(str)
 
     def _launch_one_host(self, host):
         """All launcher work for a single host. Runs on a pool thread.
@@ -866,9 +863,7 @@ class LauncherWorker(QObject):
                 from core.launcher_runner import run_custom_launcher
                 run_custom_launcher(host, transport, lc, self.audit,
                                     out_root="launched", run_folder=self.run_folder)
-                run_custom_launcher(host, transport, lc, self.audit,
-                                    out_root="launched", run_folder=self.run_folder)
-            self.host_done.emit(host.ip)          # <-- add this line, at the try's end
+            self.host_done.emit(host.ip)          
         
         except Exception as exc:
             self.error.emit(f"{host.ip}: {exc}")
