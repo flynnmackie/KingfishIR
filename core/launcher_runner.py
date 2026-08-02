@@ -178,7 +178,7 @@ def run_custom_launcher(host, transport, launcher, audit, out_root, run_folder):
                 else:
                     full = f"Set-Location '{work_path}'; {cmd}"
             else:
-                full = f"cd '{work_path}' && {cmd}"
+                full = f"bash -c \"cd '{work_path}' && {cmd}\""
             audit.log(ip, "launch run", artefact=name, outcome="ok",
                       detail=f"running command in {work_path}: {full}")
             out = transport.run_command(_wrap(full), use_sudo=use_sudo).decode(errors="replace")

@@ -692,11 +692,13 @@ class AccessTab(QWidget):
         self.host_table.setItem(row, col, item)
 
 class CollectWorker(QObject):
-    """Runs collection for each selected host on a background thread."""
+    """Runs collection for selected hosts concurrently on a background thread pool."""
     log_row = Signal(object)        # emits an AuditRecord as it happens
     host_done = Signal(str, int, int)   # ip, ok_count, total
     finished = Signal(str)          # run folder
     error = Signal(str)
+
+    MAX_CONCURRENT = 5              # cap on hosts processed at once
 
     def __init__(self, hosts, selected_ids, store, audit, run_folder,
                  run_uac=False, uac_folder="", run_kape=False, kape_folder="",
@@ -714,71 +716,79 @@ class CollectWorker(QObject):
         self.dump_mem = dump_mem
         self.winpmem_exe = winpmem_exe
 
+    def _collect_one_host(self, host, collected_root):
+        """All collection work for a single host. Runs on a pool thread.
+
+        Thread-safety: the audit log is internally locked, so concurrent calls
+        here can log freely. Each host has its own transport - no shared state.
+        """
+        transport = None
+        try:
+            profile = self.store.get(host.profile_name)
+            if host.actual_os is OSFamily.UNIX:
+                transport = SSHTransport(host.ip, profile)
+            else:
+                transport = WinRMTransport(host.ip, profile)
+
+            self.audit.log(host.ip, "session opened", outcome="ok",
+                           detail=f"connected to {host.hostname or host.ip}")
+
+            catalogue = catalogue_for(host.actual_os)
+            chosen = [a for a in catalogue if a.id in self.selected_ids]
+
+            if self.dump_mem and host.actual_os is OSFamily.WINDOWS and self.winpmem_exe:
+                from core.winpmem_runner import run_winpmem
+                run_winpmem(host, transport, self.winpmem_exe, self.audit,
+                            out_root=collected_root, run_folder=self.run_folder)
+
+            results = collect_from_host(host, chosen, transport, self.audit,
+                                        out_root=collected_root, run_folder=self.run_folder)
+            ok = sum(1 for r in results if r.collected)
+
+            if self.run_uac and host.actual_os is OSFamily.UNIX and self.uac_folder:
+                from core.uac_runner import run_uac
+                run_uac(host, transport, self.uac_folder, self.audit,
+                        out_root=collected_root, run_folder=self.run_folder)
+
+            if self.run_kape and host.actual_os is OSFamily.WINDOWS and self.kape_folder:
+                from core.kape_runner import run_kape
+                run_kape(host, transport, self.kape_folder, self.audit,
+                         out_root=collected_root, run_folder=self.run_folder)
+
+            self.host_done.emit(host.ip, ok, len(results))
+        except Exception as exc:
+            self.error.emit(f"{host.ip}: {exc}")
+        finally:
+            if transport is not None:
+                try:
+                    transport.close()
+                except Exception:
+                    pass
+                self.audit.log(host.ip, "session closed", outcome="ok",
+                               detail=f"disconnected from {host.hostname or host.ip}")
+
     def run(self):
         from core.paths import output_base
+        from concurrent.futures import ThreadPoolExecutor
         collected_root = str(output_base() / "collected")
-        # live-feed the audit log into the Log tab
+
         self.audit.subscribe(self.log_row.emit)
         self.audit.log("-", "Collect Started", outcome="ok",
-                       detail=f"run {self.run_folder}")
-        
-
+                       detail=f"run {self.run_folder} ({len(self.hosts)} host(s), "
+                              f"up to {self.MAX_CONCURRENT} at once)")
         try:
-            for host in self.hosts:
-                transport = None
-                try:
-                    profile = self.store.get(host.profile_name)
-                    if host.actual_os is OSFamily.UNIX:
-                        transport = SSHTransport(host.ip, profile)
-                    else:
-                        transport = WinRMTransport(host.ip, profile)
+            # process hosts concurrently, capped at MAX_CONCURRENT
+            with ThreadPoolExecutor(max_workers=self.MAX_CONCURRENT) as pool:
+                futures = [pool.submit(self._collect_one_host, h, collected_root)
+                           for h in self.hosts]
+                # wait for all to finish (each handles its own errors/logging)
+                for fut in futures:
+                    fut.result()      # re-raises only unexpected errors (shouldn't happen)
 
-                    # session start
-                    self.audit.log(host.ip, "session opened", outcome="ok",
-                                   detail=f"connected to {host.hostname or host.ip}")
-
-                    catalogue = catalogue_for(host.actual_os)
-                    chosen = [a for a in catalogue if a.id in self.selected_ids]
-
-                    if self.dump_mem and host.actual_os is OSFamily.WINDOWS and self.winpmem_exe:
-                        from core.winpmem_runner import run_winpmem
-                        run_winpmem(host, transport, self.winpmem_exe, self.audit,
-                                    out_root=collected_root, run_folder=self.run_folder)
-
-                    results = collect_from_host(host, chosen, transport, self.audit,
-                                                out_root=collected_root, run_folder=self.run_folder)
-                    ok = sum(1 for r in results if r.collected)
-
-                    if self.run_uac and host.actual_os is OSFamily.UNIX and self.uac_folder:
-                        from core.uac_runner import run_uac
-                        run_uac(host, transport, self.uac_folder, self.audit,
-                                out_root=collected_root, run_folder=self.run_folder)
-
-                    if self.run_kape and host.actual_os is OSFamily.WINDOWS and self.kape_folder:
-                        from core.kape_runner import run_kape
-                        run_kape(host, transport, self.kape_folder, self.audit,
-                                 out_root=collected_root, run_folder=self.run_folder)
-
-                    self.host_done.emit(host.ip, ok, len(results))
-                    self.host_done.emit(host.ip, ok, len(results))
-                    self.host_done.emit(host.ip, ok, len(results))
-                except Exception as exc:
-                    self.error.emit(f"{host.ip}: {exc}")
-                finally:
-                    # session end - always logged, even if collection failed
-                    if transport is not None:
-                        try:
-                            transport.close()
-                        except Exception:
-                            pass
-                        self.audit.log(host.ip, "session closed", outcome="ok",
-                                       detail=f"disconnected from {host.hostname or host.ip}")
-
-            # overall completion marker with the output location
             self.audit.log("-", "Collect Complete", outcome="ok",
                            detail=f"output saved to {collected_root}/{self.run_folder}/")
         finally:
-            self.audit.unsubscribe(self.log_row.emit)     # clean up so next run is fresh
+            self.audit.unsubscribe(self.log_row.emit)
 
         self.finished.emit(self.run_folder)
 
@@ -786,6 +796,8 @@ class LauncherWorker(QObject):
     log_row = Signal(object)
     finished = Signal()
     error = Signal(str)
+
+    MAX_CONCURRENT = 5              # cap on hosts processed at once
 
     def __init__(self, hosts, store, audit, do_sysmon, sysmon_exe, sysmon_config,
                  do_velo=False, velo_msi="", velo_deb="", custom_launchers=None,
@@ -803,62 +815,77 @@ class LauncherWorker(QObject):
         self.custom_launchers = custom_launchers or []
         self.run_folder = run_folder
 
+    def _launch_one_host(self, host):
+        """All launcher work for a single host. Runs on a pool thread.
+
+        Thread-safety: the audit log is internally locked; each host has its own
+        transport - no shared state between threads.
+        """
+        transport = None
+        try:
+            profile = self.store.get(host.profile_name)
+            if profile is None:
+                self.audit.log(host.ip, "launch", outcome="error",
+                               detail="no profile assigned - skipped")
+                return
+            if host.actual_os is OSFamily.UNIX:
+                transport = SSHTransport(host.ip, profile)
+            else:
+                transport = WinRMTransport(host.ip, profile)
+            self.audit.log(host.ip, "session opened", outcome="ok",
+                           detail=f"connected to {host.hostname or host.ip}")
+
+            if self.do_sysmon and host.actual_os is OSFamily.WINDOWS:
+                from core.launcher_runner import deploy_sysmon
+                deploy_sysmon(host, transport, self.sysmon_exe,
+                              self.sysmon_config, self.audit)
+            elif self.do_sysmon and host.actual_os is OSFamily.UNIX:
+                self.audit.log(host.ip, "sysmon", outcome="error",
+                               detail="Sysmon is Windows-only - skipped")
+
+            if self.do_velo:
+                from core.launcher_runner import deploy_velociraptor
+                pkg = (self.velo_msi if host.actual_os is OSFamily.WINDOWS
+                       else self.velo_deb)
+                if pkg:
+                    deploy_velociraptor(host, transport, pkg, self.audit)
+                else:
+                    self.audit.log(host.ip, "velo", outcome="error",
+                                   detail="no Velociraptor package set for this OS - skipped")
+
+            # custom launchers (run those whose OS matches this host)
+            for lc in self.custom_launchers:
+                lc_is_win = lc.get("os") == "windows"
+                host_is_win = host.actual_os is OSFamily.WINDOWS
+                if lc_is_win != host_is_win:
+                    continue      # skip launchers not meant for this host's OS
+                from core.launcher_runner import run_custom_launcher
+                run_custom_launcher(host, transport, lc, self.audit,
+                                    out_root="launched", run_folder=self.run_folder)
+        except Exception as exc:
+            self.error.emit(f"{host.ip}: {exc}")
+        finally:
+            if transport is not None:
+                try:
+                    transport.close()
+                except Exception:
+                    pass
+                self.audit.log(host.ip, "session closed", outcome="ok",
+                               detail=f"disconnected from {host.hostname or host.ip}")
+
     def run(self):
+        from concurrent.futures import ThreadPoolExecutor
         self.audit.subscribe(self.log_row.emit)
         try:
-            self.audit.log("-", "Launch Started", outcome="ok", detail="launcher run begin")
-            for host in self.hosts:
-                transport = None
-                try:
-                    profile = self.store.get(host.profile_name)
-                    if profile is None:
-                        self.audit.log(host.ip, "launch", outcome="error",
-                                       detail="no profile assigned - skipped")
-                        continue
-                    if host.actual_os is OSFamily.UNIX:
-                        transport = SSHTransport(host.ip, profile)
-                    else:
-                        transport = WinRMTransport(host.ip, profile)
-                    self.audit.log(host.ip, "session opened", outcome="ok",
-                                   detail=f"connected to {host.hostname or host.ip}")
+            self.audit.log("-", "Launch Started", outcome="ok",
+                           detail=f"launcher run begin ({len(self.hosts)} host(s), "
+                                  f"up to {self.MAX_CONCURRENT} at once)")
 
-                    if self.do_sysmon and host.actual_os is OSFamily.WINDOWS:
-                        from core.launcher_runner import deploy_sysmon
-                        deploy_sysmon(host, transport, self.sysmon_exe,
-                                      self.sysmon_config, self.audit)
-                    elif self.do_sysmon and host.actual_os is OSFamily.UNIX:
-                        self.audit.log(host.ip, "sysmon", outcome="error",
-                                       detail="Sysmon is Windows-only - skipped")
+            with ThreadPoolExecutor(max_workers=self.MAX_CONCURRENT) as pool:
+                futures = [pool.submit(self._launch_one_host, h) for h in self.hosts]
+                for fut in futures:
+                    fut.result()
 
-                    if self.do_velo:
-                        from core.launcher_runner import deploy_velociraptor
-                        pkg = (self.velo_msi if host.actual_os is OSFamily.WINDOWS
-                               else self.velo_deb)
-                        if pkg:
-                            deploy_velociraptor(host, transport, pkg, self.audit)
-                        else:
-                            self.audit.log(host.ip, "velo", outcome="error",
-                                           detail="no Velociraptor package set for this OS - skipped")
-
-                    # custom launchers (run those whose OS matches this host)
-                    for lc in self.custom_launchers:
-                        lc_is_win = lc.get("os") == "windows"
-                        host_is_win = host.actual_os is OSFamily.WINDOWS
-                        if lc_is_win != host_is_win:
-                            continue      # skip launchers not meant for this host's OS
-                        from core.launcher_runner import run_custom_launcher
-                        run_custom_launcher(host, transport, lc, self.audit,
-                                            out_root="launched", run_folder=self.run_folder)
-                except Exception as exc:
-                    self.error.emit(f"{host.ip}: {exc}")
-                finally:
-                    if transport is not None:
-                        try:
-                            transport.close()
-                        except Exception:
-                            pass
-                        self.audit.log(host.ip, "session closed", outcome="ok",
-                                       detail=f"disconnected from {host.hostname or host.ip}")
             from core.paths import output_base
             launched_loc = output_base() / "launched" / self.run_folder
             self.audit.log("-", "Launch Complete", outcome="ok",
@@ -2298,8 +2325,8 @@ class LogTab(QWidget):
                 f"source:   {rec.source_hash}\nreceived: {rec.received_hash}")
 
         # ---- row colour by outcome / action ----
-        if rec.action == "session opened":
-            bg = QColor(120, 190, 120)       # dark-ish green, start marker
+        if rec.action in ("session opened", "session closed"):
+            bg = QColor(120, 190, 120)       # dark-ish green, start/end marker
         elif rec.action in ("Collect Complete", "Collect Started",
                             "Launch Started", "Launch Complete"):
             bg = QColor(160, 205, 235)       # blue, end-of-run marker
