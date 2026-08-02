@@ -715,12 +715,13 @@ class CollectWorker(QObject):
         self.winpmem_exe = winpmem_exe
 
     def run(self):
+        from core.paths import output_root
+        collected_root = str(output_root() / "collected")
         # live-feed the audit log into the Log tab
         self.audit.subscribe(self.log_row.emit)
         self.audit.log("-", "Collect Started", outcome="ok",
                        detail=f"run {self.run_folder}")
-        from core.paths import output_root
-        collected_root = str(output_root() / "collected")
+        
 
         try:
             for host in self.hosts:
@@ -742,23 +743,23 @@ class CollectWorker(QObject):
                     if self.dump_mem and host.actual_os is OSFamily.WINDOWS and self.winpmem_exe:
                         from core.winpmem_runner import run_winpmem
                         run_winpmem(host, transport, self.winpmem_exe, self.audit,
-                                    out_root="collected", run_folder=self.run_folder)
+                                    out_root=collected_root, run_folder=self.run_folder)
 
                     results = collect_from_host(host, chosen, transport, self.audit,
-                                                out_root="collected", run_folder=self.run_folder)
+                                                out_root=collected_root, run_folder=self.run_folder)
                     ok = sum(1 for r in results if r.collected)
 
                     if self.run_uac and host.actual_os is OSFamily.UNIX and self.uac_folder:
                         from core.uac_runner import run_uac
                         self.uac_status.emit("running")
                         run_uac(host, transport, self.uac_folder, self.audit,
-                                out_root="collected", run_folder=self.run_folder)
+                                out_root=collected_root, run_folder=self.run_folder)
                         self.uac_status.emit("done")
 
                     if self.run_kape and host.actual_os is OSFamily.WINDOWS and self.kape_folder:
                         from core.kape_runner import run_kape
                         run_kape(host, transport, self.kape_folder, self.audit,
-                                 out_root="collected", run_folder=self.run_folder)
+                                 out_root=collected_root, run_folder=self.run_folder)
 
                     self.host_done.emit(host.ip, ok, len(results))
                     self.host_done.emit(host.ip, ok, len(results))
@@ -777,7 +778,7 @@ class CollectWorker(QObject):
 
             # overall completion marker with the output location
             self.audit.log("-", "Collect Complete", outcome="ok",
-                           detail=f"output saved to collected/{self.run_folder}/")
+                           detail=f"output saved to {collected_root}/{self.run_folder}/")
         finally:
             self.audit.unsubscribe(self.log_row.emit)     # clean up so next run is fresh
 
@@ -1204,7 +1205,8 @@ class CollectTab(QWidget):
             self._timer.stop()
         self.collect_btn.setText("Start collection")
         self.collect_btn.setEnabled(True)
-        self.status.setText(f"Done. Output under collected/{run_folder}/")
+        from core.paths import output_root
+        self.status.setText(f"Done. Output under {output_root() / 'collected' / run_folder}/")
         self.log_tab.timer_label.setText("")
 
 class LauncherTab(QWidget):
