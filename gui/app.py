@@ -2319,11 +2319,25 @@ def _show_first_run(parent):
     """One-time welcome: explain the default output location and offer to set one."""
     from core.paths import app_data_dir
     from core.config import load_config, save_config
+    save_config(cfg)
+    # keep the in-memory state config in sync so Settings reflects it
+    if hasattr(parent, "state"):
+        parent.state.config["output_root"] = folder
+    QMessageBox.information(...)
 
     box = QMessageBox(parent)
+    box = QMessageBox(parent)
     box.setWindowTitle("Welcome to KingfishIR")
-    box.setIcon(QMessageBox.Information)
+    from core.paths import resource_path
+    from PySide6.QtGui import QPixmap
+    from PySide6.QtCore import Qt
+    pix = QPixmap(resource_path("kingfisher.png"))
+    if not pix.isNull():
+        box.setIconPixmap(pix.scaledToWidth(96, Qt.SmoothTransformation))
+    else:
+        box.setIcon(QMessageBox.Information)
     box.setText("<b>Welcome to KingfishIR</b>")
+    ...
     box.setInformativeText(
         "By default, collected evidence and launcher output are saved to:<br><br>"
         f"<code>{app_data_dir() / 'kingfishir_output'}</code><br><br>"
